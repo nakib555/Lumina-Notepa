@@ -1,16 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Note } from "@/hooks/use-notes";
 import { 
   FileText, CheckCircle2, Menu, Eye, Edit3, 
   Bold, Italic, Underline, Strikethrough, Subscript, Superscript, 
   Copy, Play, ExternalLink, Check,
   Heading1, Heading2, Heading3, List, ListOrdered, ListTodo,
-  Quote, Code, Link, Image, Minus, Table
+  Quote, Code, Link, Image, Minus, Table,
+  Undo2, Redo2
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import { cn } from "@/lib/utils";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -45,44 +47,50 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeBlockProps) =>
   }
 
   return (
-    <div className="my-6 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-      <div className="bg-slate-50/80 border-b border-slate-200 px-4 py-2 flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          {language || 'code'}
-        </span>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
-            <Play className="w-3 h-3 fill-current" />
-            Run
-          </button>
-          <button className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 hover:text-violet-700 transition-colors">
-            <ExternalLink className="w-3 h-3" />
-            Open
-          </button>
-          <button 
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-          >
-            {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
+    <div className="not-prose my-6">
+      <div className="rounded-lg shadow-sm font-sans group bg-[#fafafa] transition-colors duration-300 border border-slate-200 relative overflow-hidden">
+        <div className="sticky top-0 z-10 flex justify-between items-center px-4 py-2 bg-slate-50 border-b border-slate-200 select-none">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-slate-400 font-mono uppercase">
+              {language || 'text'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all text-green-600 hover:bg-green-50" title="Run Code">
+              <Play className="w-3 h-3 fill-current" />
+              Run
+            </button>
+            <button className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-violet-600 hover:bg-violet-50 transition-all" title="Open in Side Panel">
+              <ExternalLink className="w-3 h-3" />
+              Open
+            </button>
+            <button 
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all"
+              aria-label="Copy code"
+            >
+              {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="bg-[#f8fafc] p-0">
-        <SyntaxHighlighter
-          style={oneLight}
-          language={language}
-          PreTag="div"
-          customStyle={{
-            margin: 0,
-            padding: '1.5rem',
-            fontSize: '0.9rem',
-            backgroundColor: 'transparent',
-          }}
-          {...props}
-        >
-          {code}
-        </SyntaxHighlighter>
+        <div className="relative overflow-x-auto text-[13px] leading-6 custom-scrollbar bg-[#fafafa]">
+          <SyntaxHighlighter
+            style={oneLight}
+            language={language}
+            PreTag="div"
+            customStyle={{
+              margin: 0,
+              padding: '1.5rem',
+              fontSize: '13px',
+              backgroundColor: 'transparent',
+              fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+            }}
+            {...props}
+          >
+            {code}
+          </SyntaxHighlighter>
+        </div>
       </div>
     </div>
   );
@@ -98,6 +106,78 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  
+  // Undo/Redo State
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isInternalUpdate, setIsInternalUpdate] = useState(false);
+
+  // Initialize history when note changes
+  useEffect(() => {
+    if (note && history.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHistory([note.content]);
+      setHistoryIndex(0);
+    }
+  }, [note?.id, note, history.length]);
+
+  // Track content changes for history
+  useEffect(() => {
+    if (!note || isInternalUpdate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsInternalUpdate(false);
+      return;
+    }
+
+    const lastContent = history[historyIndex];
+    if (note.content !== lastContent) {
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(note.content);
+      // Limit history size
+      if (newHistory.length > 50) newHistory.shift();
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+    }
+  }, [note?.content, note, isInternalUpdate, history, historyIndex]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0 && note) {
+      const prevContent = history[historyIndex - 1];
+      setIsInternalUpdate(true);
+      setHistoryIndex(historyIndex - 1);
+      onUpdateNote(note.id, { content: prevContent });
+    }
+  }, [history, historyIndex, note, onUpdateNote]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1 && note) {
+      const nextContent = history[historyIndex + 1];
+      setIsInternalUpdate(true);
+      setHistoryIndex(historyIndex + 1);
+      onUpdateNote(note.id, { content: nextContent });
+    }
+  }, [history, historyIndex, note, onUpdateNote]);
+
+  // Keyboard shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+        } else {
+          e.preventDefault();
+          handleUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Simulate saving status for UX (actual save happens instantly in use-notes hook)
   useEffect(() => {
@@ -194,6 +274,34 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
               Preview
             </Button>
           </div>
+
+          {!isPreviewMode && (
+            <>
+              <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleUndo} 
+                  disabled={historyIndex <= 0}
+                  className="h-8 w-8 text-slate-500 hover:text-slate-800 disabled:opacity-30"
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo2 className="w-4 h-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleRedo} 
+                  disabled={historyIndex >= history.length - 1}
+                  className="h-8 w-8 text-slate-500 hover:text-slate-800 disabled:opacity-30"
+                  title="Redo (Ctrl+Y)"
+                >
+                  <Redo2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -224,9 +332,9 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
           />
           
           {isPreviewMode ? (
-            <div className="prose prose-slate max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-p:leading-relaxed prose-a:text-indigo-600">
+            <div className="prose prose-slate max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-p:leading-relaxed prose-a:text-indigo-600 whitespace-pre-wrap">
               <ReactMarkdown 
-                remarkPlugins={[remarkGfm]} 
+                remarkPlugins={[remarkGfm, remarkBreaks]} 
                 rehypePlugins={[rehypeRaw]}
                 components={{
                   code: CodeBlock as React.FC<CodeBlockProps>
