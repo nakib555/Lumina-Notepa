@@ -122,13 +122,20 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
   // Undo/Redo State
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const historyIndexRef = useRef(-1);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Keep ref in sync
+  useEffect(() => {
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
 
   // Reset history ONLY when note ID changes
   useEffect(() => {
     if (note) {
       setHistory([{ title: note.title, content: note.content }]);
       setHistoryIndex(0);
+      historyIndexRef.current = 0;
     }
     // We explicitly only want to reset when the ID changes, not on every content update
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,23 +149,22 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
 
     const performAdd = () => {
       setHistory(prev => {
-        const lastItem = prev[historyIndex];
+        const currentIndex = historyIndexRef.current;
+        const lastItem = prev[currentIndex];
+        
         if (lastItem && lastItem.title === title && lastItem.content === content) {
           return prev;
         }
         
-        const newHistory = prev.slice(0, historyIndex + 1);
+        const newHistory = prev.slice(0, currentIndex + 1);
         newHistory.push({ title, content });
         
         // Limit history size
-        if (newHistory.length > 100) {
-          return newHistory.slice(newHistory.length - 100);
-        }
-        return newHistory;
-      });
-      setHistoryIndex(prev => {
-        const nextIndex = prev + 1;
-        return nextIndex > 99 ? 99 : nextIndex;
+        const finalHistory = newHistory.length > 100 ? newHistory.slice(newHistory.length - 100) : newHistory;
+        
+        // Update index after history is updated
+        setHistoryIndex(finalHistory.length - 1);
+        return finalHistory;
       });
     };
 
@@ -167,7 +173,7 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
     } else {
       debounceTimerRef.current = setTimeout(performAdd, 1000); // 1 second debounce for typing
     }
-  }, [historyIndex]);
+  }, []);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;

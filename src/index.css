@@ -129,6 +129,17 @@
     }
 }
 
+@layer utilities {
+  /* Hide scrollbar utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
 .prose u {
   text-decoration: underline;
 }
@@ -244,13 +255,4 @@
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: oklch(0.4 0 0);
-}
-
-/* Hide scrollbar utility */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }
