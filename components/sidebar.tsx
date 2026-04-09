@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, FileText, Book, X } from "lucide-react";
+import { Plus, Trash2, FileText, X, Download } from "lucide-react";
 import { Note } from "@/hooks/use-notes";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { usePWAInstall } from "@/hooks/use-pwa-install";
 
 interface SidebarProps {
   notes: Note[];
@@ -15,6 +16,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ notes, activeNoteId, onSelectNote, onCreateNote, onDeleteNote, isOpen, onClose }: SidebarProps) {
+  const { isInstallable, installApp } = usePWAInstall();
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -32,8 +35,8 @@ export function Sidebar({ notes, activeNoteId, onSelectNote, onCreateNote, onDel
       )}>
         <div className="p-5 border-b border-slate-200/60 flex items-center justify-between bg-[#f8f8f7]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center shadow-sm">
-              <Book className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-sm">
+              <img src="/logo.svg" alt="Lumina Logo" className="w-full h-full object-cover" />
             </div>
             <h1 className="font-semibold text-slate-800 tracking-tight">Lumina</h1>
           </div>
@@ -110,6 +113,20 @@ export function Sidebar({ notes, activeNoteId, onSelectNote, onCreateNote, onDel
           )}
         </div>
       </div>
+
+      {/* PWA Install Button */}
+      {isInstallable && (
+        <div className="p-4 border-t border-slate-200/60">
+          <Button 
+            onClick={installApp}
+            className="w-full justify-start gap-2 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 hover:text-indigo-700 shadow-none transition-all"
+            variant="outline"
+          >
+            <Download className="w-4 h-4" />
+            Install Desktop App
+          </Button>
+        </div>
+      )}
     </div>
     </>
   );
