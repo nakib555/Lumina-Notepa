@@ -12,7 +12,10 @@ import { Button } from "@/components/ui/button";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import remarkToc from 'remark-toc';
 import rehypeRaw from 'rehype-raw';
+import rehypeSlug from 'rehype-slug';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import { cn } from "@/lib/utils";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -121,14 +124,15 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset history when note ID changes
+  // Reset history ONLY when note ID changes
   useEffect(() => {
     if (note) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHistory([{ title: note.title, content: note.content }]);
       setHistoryIndex(0);
     }
-  }, [note?.id, note]);
+    // We explicitly only want to reset when the ID changes, not on every content update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note?.id]);
 
   const addToHistory = useCallback((title: string, content: string, immediate = false) => {
     if (debounceTimerRef.current) {
@@ -217,7 +221,6 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
   // Simulate saving status for UX (actual save happens instantly in use-notes hook)
   useEffect(() => {
     if (!note) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSaveStatus("saving");
     const timeout = setTimeout(() => {
       setSaveStatus("saved");
@@ -363,12 +366,42 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
           />
           
           {isPreviewMode ? (
-            <div className="prose prose-slate max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-p:leading-relaxed prose-a:text-indigo-600 whitespace-pre-wrap">
+            <div className="prose prose-slate max-w-none prose-headings:font-serif prose-headings:tracking-tight prose-p:leading-relaxed prose-a:text-indigo-600 prose-blockquote:border-l-4 prose-blockquote:border-indigo-200 prose-blockquote:bg-indigo-50/30 prose-blockquote:py-1 prose-blockquote:px-6 prose-blockquote:rounded-r-lg prose-blockquote:italic prose-img:rounded-2xl prose-img:shadow-lg prose-table:border prose-table:border-slate-200 prose-th:bg-slate-50 prose-th:px-4 prose-th:py-3 prose-td:px-4 prose-td:py-3 whitespace-pre-wrap">
               <ReactMarkdown 
-                remarkPlugins={[remarkGfm, remarkBreaks]} 
-                rehypePlugins={[rehypeRaw]}
+                remarkPlugins={[remarkGfm, remarkBreaks, [remarkToc, { heading: 'toc|contents|table of contents', tight: true }]]} 
+                rehypePlugins={[rehypeRaw, rehypeSlug, [rehypeAutolinkHeadings, { behavior: 'wrap' }]]}
                 components={{
-                  code: CodeBlock as React.FC<CodeBlockProps>
+                  code: CodeBlock as React.FC<CodeBlockProps>,
+                  a: ({ ...props }) => (
+                    <a 
+                      {...props} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-4 transition-colors"
+                    />
+                  ),
+                  blockquote: ({ ...props }) => (
+                    <blockquote {...props} className="not-italic border-l-4 border-indigo-500 bg-indigo-50/50 py-2 px-6 rounded-r-xl my-6" />
+                  ),
+                  table: ({ ...props }) => (
+                    <div className="overflow-x-auto my-8 rounded-xl border border-slate-200 shadow-sm">
+                      <table {...props} className="w-full text-sm text-left border-collapse" />
+                    </div>
+                  ),
+                  th: ({ ...props }) => (
+                    <th {...props} className="bg-slate-50/80 px-4 py-3 font-semibold text-slate-900 border-b border-slate-200" />
+                  ),
+                  td: ({ ...props }) => (
+                    <td {...props} className="px-4 py-3 text-slate-600 border-b border-slate-100" />
+                  ),
+                  hr: () => <hr className="my-12 border-t-2 border-slate-100 rounded-full" />,
+                  img: ({ ...props }) => (
+                    <img 
+                      {...props} 
+                      referrerPolicy="no-referrer" 
+                      className="rounded-2xl shadow-xl mx-auto my-10 border border-slate-100" 
+                    />
+                  )
                 }}
               >
                 {note.content || "_No content yet..._"}
