@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Trash2, FileText, Book, X } from "lucide-react";
 import { Note } from "@/hooks/use-notes";
 import { format } from "date-fns";
@@ -59,7 +58,7 @@ export function Sidebar({ notes, activeNoteId, onSelectNote, onCreateNote, onDel
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 px-3">
+      <div className="flex-1 px-3 overflow-y-auto custom-scrollbar">
         <div className="space-y-1 pb-4">
           {notes.map(note => (
             <div
@@ -110,7 +109,7 @@ export function Sidebar({ notes, activeNoteId, onSelectNote, onCreateNote, onDel
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
     </>
   );

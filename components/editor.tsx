@@ -8,7 +8,6 @@ import {
   Quote, Code, Link, Image, Minus, Table,
   Undo2, Redo2
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -48,33 +47,33 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeBlockProps) =>
 
   return (
     <div className="not-prose my-6">
-      <div className="rounded-lg shadow-sm font-sans group bg-[#fafafa] transition-colors duration-300 border border-slate-200 relative overflow-hidden">
-        <div className="sticky top-0 z-10 flex justify-between items-center px-4 py-2 bg-slate-50 border-b border-slate-200 select-none">
+      <div className="rounded-xl shadow-sm font-sans group bg-[#f4f7f8] transition-colors duration-300 border border-[#e9ecef] relative overflow-hidden">
+        <div className="sticky top-0 z-10 flex justify-between items-center px-5 py-2.5 bg-[#f8f9fa] border-b border-[#e9ecef] select-none">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold text-slate-400 font-mono uppercase">
+            <span className="text-[13px] font-semibold text-[#6c757d] font-mono capitalize">
               {language || 'text'}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all text-green-600 hover:bg-green-50" title="Run Code">
-              <Play className="w-3 h-3 fill-current" />
+          <div className="flex items-center gap-4">
+            <button className="flex items-center gap-1.5 px-1 py-1 rounded text-[13px] font-medium transition-all text-[#198754] hover:opacity-80" title="Run Code">
+              <Play className="w-3.5 h-3.5 fill-current" />
               Run
             </button>
-            <button className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-violet-600 hover:bg-violet-50 transition-all" title="Open in Side Panel">
-              <ExternalLink className="w-3 h-3" />
+            <button className="flex items-center gap-1.5 px-1 py-1 rounded text-[13px] font-medium text-[#6f42c1] hover:opacity-80 transition-all" title="Open in Side Panel">
+              <ExternalLink className="w-3.5 h-3.5" />
               Open
             </button>
             <button 
               onClick={handleCopy}
-              className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all"
+              className="flex items-center gap-1.5 px-1 py-1 rounded text-[13px] font-medium text-[#6c757d] hover:text-slate-900 transition-all"
               aria-label="Copy code"
             >
-              {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
         </div>
-        <div className="relative overflow-x-auto text-[13px] leading-6 custom-scrollbar bg-[#fafafa]">
+        <div className="relative overflow-x-auto text-[14px] leading-relaxed custom-scrollbar bg-[#f4f7f8]">
           <SyntaxHighlighter
             style={oneLight}
             language={language}
@@ -82,9 +81,14 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeBlockProps) =>
             customStyle={{
               margin: 0,
               padding: '1.5rem',
-              fontSize: '13px',
+              fontSize: '14px',
               backgroundColor: 'transparent',
               fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+            }}
+            codeTagProps={{
+              style: {
+                backgroundColor: 'transparent',
+              }
             }}
             {...props}
           >
@@ -102,59 +106,90 @@ interface EditorProps {
   onToggleSidebar: () => void;
 }
 
+interface HistoryItem {
+  title: string;
+  content: string;
+}
+
 export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   
   // Undo/Redo State
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [isInternalUpdate, setIsInternalUpdate] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize history when note changes
+  // Reset history when note ID changes
   useEffect(() => {
-    if (note && history.length === 0) {
+    if (note) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setHistory([note.content]);
+      setHistory([{ title: note.title, content: note.content }]);
       setHistoryIndex(0);
     }
-  }, [note?.id, note, history.length]);
+  }, [note?.id, note]);
 
-  // Track content changes for history
-  useEffect(() => {
-    if (!note || isInternalUpdate) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsInternalUpdate(false);
-      return;
+  const addToHistory = useCallback((title: string, content: string, immediate = false) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
 
-    const lastContent = history[historyIndex];
-    if (note.content !== lastContent) {
-      const newHistory = history.slice(0, historyIndex + 1);
-      newHistory.push(note.content);
-      // Limit history size
-      if (newHistory.length > 50) newHistory.shift();
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
+    const performAdd = () => {
+      setHistory(prev => {
+        const lastItem = prev[historyIndex];
+        if (lastItem && lastItem.title === title && lastItem.content === content) {
+          return prev;
+        }
+        
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push({ title, content });
+        
+        // Limit history size
+        if (newHistory.length > 100) {
+          return newHistory.slice(newHistory.length - 100);
+        }
+        return newHistory;
+      });
+      setHistoryIndex(prev => {
+        const nextIndex = prev + 1;
+        return nextIndex > 99 ? 99 : nextIndex;
+      });
+    };
+
+    if (immediate) {
+      performAdd();
+    } else {
+      debounceTimerRef.current = setTimeout(performAdd, 1000); // 1 second debounce for typing
     }
-  }, [note?.content, note, isInternalUpdate, history, historyIndex]);
+  }, [historyIndex]);
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    onUpdateNote(note!.id, { title: newTitle });
+    addToHistory(newTitle, note!.content);
+  };
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    onUpdateNote(note!.id, { content: newContent });
+    addToHistory(note!.title, newContent);
+  };
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0 && note) {
-      const prevContent = history[historyIndex - 1];
-      setIsInternalUpdate(true);
+      const prevItem = history[historyIndex - 1];
       setHistoryIndex(historyIndex - 1);
-      onUpdateNote(note.id, { content: prevContent });
+      onUpdateNote(note.id, { title: prevItem.title, content: prevItem.content });
     }
   }, [history, historyIndex, note, onUpdateNote]);
 
   const handleRedo = useCallback(() => {
     if (historyIndex < history.length - 1 && note) {
-      const nextContent = history[historyIndex + 1];
-      setIsInternalUpdate(true);
+      const nextItem = history[historyIndex + 1];
       setHistoryIndex(historyIndex + 1);
-      onUpdateNote(note.id, { content: nextContent });
+      onUpdateNote(note.id, { title: nextItem.title, content: nextItem.content });
     }
   }, [history, historyIndex, note, onUpdateNote]);
 
@@ -210,16 +245,8 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
     );
   }
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpdateNote(note.id, { title: e.target.value });
-  };
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onUpdateNote(note.id, { content: e.target.value });
-  };
-
   const applyFormatting = (prefix: string, suffix: string = prefix) => {
-    if (!textareaRef.current) return;
+    if (!textareaRef.current || !note) return;
 
     const start = textareaRef.current.selectionStart;
     const end = textareaRef.current.selectionEnd;
@@ -232,6 +259,7 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
       text.substring(end);
 
     onUpdateNote(note.id, { content: newText });
+    addToHistory(note.title, newText, true); // Immediate commit for formatting
 
     // Reset focus and selection after state update
     setTimeout(() => {
@@ -254,26 +282,29 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
             <Menu className="w-5 h-5" />
           </Button>
           <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-          <div className="flex items-center bg-slate-100 rounded-lg p-1">
-            <Button 
-              variant={!isPreviewMode ? "secondary" : "ghost"} 
-              size="sm" 
-              onClick={() => setIsPreviewMode(false)}
-              className={cn("h-7 px-3 gap-1.5 text-xs font-medium transition-all", !isPreviewMode ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700")}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              Edit
-            </Button>
-            <Button 
-              variant={isPreviewMode ? "secondary" : "ghost"} 
-              size="sm" 
-              onClick={() => setIsPreviewMode(true)}
-              className={cn("h-7 px-3 gap-1.5 text-xs font-medium transition-all", isPreviewMode ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700")}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              Preview
-            </Button>
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsPreviewMode(!isPreviewMode)}
+            className={cn(
+              "h-9 px-4 gap-2 text-sm font-medium transition-all rounded-xl border-slate-200 shadow-sm",
+              isPreviewMode 
+                ? "bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 hover:text-indigo-800" 
+                : "bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            {isPreviewMode ? (
+              <>
+                <Edit3 className="w-4 h-4" />
+                Edit Mode
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4" />
+                Preview Mode
+              </>
+            )}
+          </Button>
 
           {!isPreviewMode && (
             <>
@@ -321,7 +352,7 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
       </header>
 
       {/* Editor Area */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-3xl mx-auto px-6 py-12 md:px-12 md:py-16 flex flex-col gap-6">
           <input
             type="text"
@@ -353,7 +384,7 @@ export function Editor({ note, onUpdateNote, onToggleSidebar }: EditorProps) {
             />
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Bottom Formatting Bar */}
       {!isPreviewMode && (
