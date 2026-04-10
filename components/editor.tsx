@@ -533,7 +533,14 @@ export function Editor({
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-background relative">
       {/* Toolbar */}
-      <header className="h-14 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background/80 backdrop-blur-md z-10">
+      <header 
+        className="h-14 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background/80 backdrop-blur-md z-10"
+        onPointerDown={(e) => {
+          if ((e.target as HTMLElement).closest('button')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <div className="flex items-center gap-1 sm:gap-2 py-1 shrink-0">
           <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="text-muted-foreground hover:text-foreground shrink-0">
             <Menu className="w-5 h-5" />
@@ -742,7 +749,15 @@ export function Editor({
               
               {/* Slash Command Menu */}
               {slashMenuOpen && (
-                <div className="fixed z-50 w-64 md:w-72 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" style={{ bottom: '80px', left: '50%', transform: 'translateX(-50%)' }}>
+                <div 
+                  className="fixed z-50 w-64 md:w-72 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
+                  style={{ bottom: '80px', left: '50%', transform: 'translateX(-50%)' }}
+                  onPointerDown={(e) => {
+                    if ((e.target as HTMLElement).closest('button')) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
                   <div className="px-3 py-2 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
                     <span>Basic Blocks</span>
                     <button onClick={() => setSlashMenuOpen(false)} className="hover:bg-muted p-1 rounded-md">
@@ -787,7 +802,17 @@ export function Editor({
       {/* Bottom Formatting Bar */}
       {!isPreviewMode && (
         <div className="absolute bottom-4 sm:bottom-8 left-0 right-0 z-20 px-2 sm:px-4 flex justify-center pointer-events-none">
-          <div className="relative pointer-events-auto max-w-full flex flex-col items-center" ref={symbolMenuRef}>
+          <div 
+            className="relative pointer-events-auto max-w-full flex flex-col items-center" 
+            ref={symbolMenuRef}
+            onPointerDown={(e) => {
+              // Prevent textarea from losing focus when clicking toolbar buttons
+              // This keeps the mobile keyboard open and preserves text selection
+              if ((e.target as HTMLElement).closest('button')) {
+                e.preventDefault();
+              }
+            }}
+          >
             {showSymbolMenu && (
               <div 
                 ref={symbolScrollRef}

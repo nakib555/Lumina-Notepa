@@ -42,16 +42,23 @@ export default function App() {
 
   // Handle initial screen size and resize events
   useEffect(() => {
+    let lastWidth = window.innerWidth;
+    
     const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
+      const currentWidth = window.innerWidth;
+      const wasMobile = lastWidth < 768;
+      const isMobile = currentWidth < 768;
+      
+      // Only change sidebar state if we actually crossed the mobile breakpoint
+      if (wasMobile !== isMobile) {
+        setIsSidebarOpen(!isMobile);
       }
+      
+      lastWidth = currentWidth;
     };
     
     // Set initial state
-    handleResize();
+    setIsSidebarOpen(window.innerWidth >= 768);
     
     window.addEventListener('resize', handleResize);
 
