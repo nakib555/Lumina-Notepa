@@ -76,13 +76,13 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">Rules</label>
-              <Button variant="outline" size="sm" onClick={handleAddRule} className="h-8">
+              <button type="button" onClick={handleAddRule} className="h-8 px-3 text-xs font-medium border border-border rounded-md hover:bg-muted flex items-center">
                 <Plus className="w-4 h-4 mr-1" /> Add Rule
-              </Button>
+              </button>
             </div>
             
             {rules.map((rule, index) => (
-              <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-2 rounded-lg border border-border">
+              <div key={index} className="relative flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-3 pr-10 rounded-lg border border-border">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <select
                     value={rule.type}
@@ -130,11 +130,15 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
                       className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm min-w-0"
                     />
                   )}
-                  
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveRule(index)} className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0">
-                    <X className="w-4 h-4" />
-                  </Button>
                 </div>
+                
+                <button 
+                  type="button" 
+                  onClick={() => handleRemoveRule(index)} 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-destructive flex items-center justify-center rounded-md hover:bg-muted"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             ))}
             
@@ -146,9 +150,9 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!name.trim() || rules.length === 0}>Save Folder</Button>
+        <DialogFooter className="flex-row justify-end">
+          <button type="button" className="px-4 py-2 border border-border rounded-md hover:bg-muted text-sm font-medium" onClick={onClose}>Cancel</button>
+          <button type="button" className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm font-medium disabled:opacity-50" onClick={handleSave} disabled={!name.trim() || rules.length === 0}>Save Folder</button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

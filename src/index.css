@@ -238,7 +238,7 @@
 
 @layer base {
   html, body, #root {
-    @apply h-full;
+    @apply h-[100dvh] overflow-hidden;
   }
   * {
     @apply border-border outline-ring/50;

@@ -742,9 +742,12 @@ export function Editor({
               
               {/* Slash Command Menu */}
               {slashMenuOpen && (
-                <div className="absolute z-50 w-64 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" style={{ bottom: '40px', left: '20px' }}>
-                  <div className="px-3 py-2 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Basic Blocks
+                <div className="fixed z-50 w-64 md:w-72 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" style={{ bottom: '80px', left: '50%', transform: 'translateX(-50%)' }}>
+                  <div className="px-3 py-2 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider flex justify-between items-center">
+                    <span>Basic Blocks</span>
+                    <button onClick={() => setSlashMenuOpen(false)} className="hover:bg-muted p-1 rounded-md">
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
                   <div className="max-h-[300px] overflow-y-auto p-1 custom-scrollbar">
                     {[

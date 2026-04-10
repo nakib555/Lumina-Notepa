@@ -54,25 +54,9 @@ export default function App() {
     handleResize();
     
     window.addEventListener('resize', handleResize);
-    
-    // Handle mobile keyboard layout issues
-    const handleVisualViewportResize = () => {
-      if (window.visualViewport) {
-        document.body.style.height = window.visualViewport.height + "px";
-      }
-    };
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", handleVisualViewportResize);
-      // Set initial height
-      handleVisualViewportResize();
-    }
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", handleVisualViewportResize);
-      }
     };
   }, []);
 
