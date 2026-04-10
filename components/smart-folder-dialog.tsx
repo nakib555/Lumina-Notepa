@@ -82,12 +82,12 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
             </div>
             
             {rules.map((rule, index) => (
-              <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-2 sm:p-3 rounded-lg border border-border">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-2 sm:p-3 rounded-lg border border-border w-full">
+                <div className="flex items-center gap-2 w-full sm:w-1/2">
                   <select
                     value={rule.type}
                     onChange={(e) => handleRuleChange(index, 'type', e.target.value)}
-                    className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 sm:flex-none sm:w-[100px]"
+                    className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 min-w-0"
                   >
                     <option value="tag">Tag</option>
                     <option value="keyword">Keyword</option>
@@ -97,7 +97,7 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
                   <select
                     value={rule.operator}
                     onChange={(e) => handleRuleChange(index, 'operator', e.target.value)}
-                    className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 sm:flex-none sm:w-[110px]"
+                    className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 min-w-0"
                   >
                     {rule.type === 'date' ? (
                       <>
@@ -113,7 +113,7 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
                   </select>
                 </div>
                 
-                <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+                <div className="flex items-center gap-2 w-full sm:w-1/2">
                   {rule.type === 'date' ? (
                     <input
                       type="date"
