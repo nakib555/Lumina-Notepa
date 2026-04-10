@@ -376,15 +376,15 @@ export function Editor({
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white relative">
       {/* Toolbar */}
-      <header className="h-14 border-b border-slate-100 flex items-center justify-between px-4 shrink-0 bg-white/80 backdrop-blur-md z-10">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="text-slate-500 hover:text-slate-800">
+      <header className="h-14 border-b border-slate-100 flex items-center justify-between px-2 sm:px-4 shrink-0 bg-white/80 backdrop-blur-md z-10">
+        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+          <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="text-slate-500 hover:text-slate-800 shrink-0">
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+          <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block shrink-0" />
           
           {/* Mobile Theme Switcher */}
-          <div className="flex items-center gap-1 sm:hidden">
+          <div className="flex items-center gap-0.5 sm:hidden shrink-0">
             {[
               { id: 'light', icon: '☀️' },
               { id: 'dark', icon: '🌙' },
@@ -397,7 +397,7 @@ export function Editor({
                 size="icon"
                 onClick={() => onThemeChange(t.id)}
                 className={cn(
-                  "h-8 w-8 rounded-lg text-sm",
+                  "h-8 w-8 rounded-lg text-sm shrink-0",
                   theme === t.id ? "bg-slate-100" : ""
                 )}
               >
@@ -411,7 +411,7 @@ export function Editor({
             size="sm" 
             onClick={() => setIsPreviewMode(!isPreviewMode)}
             className={cn(
-              "h-9 px-4 gap-2 text-sm font-medium transition-all rounded-xl border-slate-200 shadow-sm",
+              "h-9 px-2 sm:px-4 gap-2 text-sm font-medium transition-all rounded-xl border-slate-200 shadow-sm shrink-0",
               isPreviewMode 
                 ? "bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 hover:text-indigo-800" 
                 : "bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
@@ -420,12 +420,12 @@ export function Editor({
             {isPreviewMode ? (
               <>
                 <Edit3 className="w-4 h-4" />
-                Edit Mode
+                <span className="hidden sm:inline">Edit Mode</span>
               </>
             ) : (
               <>
                 <Eye className="w-4 h-4" />
-                Preview Mode
+                <span className="hidden sm:inline">Preview Mode</span>
               </>
             )}
           </Button>
@@ -433,7 +433,7 @@ export function Editor({
           {!isPreviewMode && (
             <>
               <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -459,13 +459,13 @@ export function Editor({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <div className="relative" ref={exportMenuRef}>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="h-9 px-3 gap-2 text-slate-600 hover:bg-slate-100 rounded-xl"
+              className="h-9 px-2 sm:px-3 gap-2 text-slate-600 hover:bg-slate-100 rounded-xl shrink-0"
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export</span>
