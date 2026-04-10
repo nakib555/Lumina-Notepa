@@ -141,11 +141,9 @@ export function Editor({
   const [tagInput, setTagInput] = useState("");
   const [folderInput, setFolderInput] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [isFocusMode, setIsFocusMode] = useState(false);
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
   const [slashSearch, setSlashSearch] = useState("");
-  const [showToc, setShowToc] = useState(false);
   
   // Undo/Redo State
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -311,19 +309,7 @@ export function Editor({
     }
   }, [history, historyIndex, note, onUpdateNote]);
 
-  const toggleFocusMode = () => {
-    setIsFocusMode(!isFocusMode);
-    if (!isFocusMode) {
-      // Entering focus mode, close sidebar if open
-      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-        // We can't directly check if sidebar is open from Editor, but we can trigger toggle
-        // Actually, it's better to pass a prop or just let the user close it.
-        // Let's just hide the editor's own UI for now.
-      }
-    }
-  };
-
-  // Keyboard shortcuts for Undo/Redo and Focus Mode
+  // Keyboard shortcuts for Undo/Redo
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
@@ -344,9 +330,6 @@ export function Editor({
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
         e.preventDefault();
         handleRedo();
-      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'f') {
-        e.preventDefault();
-        setIsFocusMode(prev => !prev);
       }
     };
 
@@ -500,27 +483,9 @@ export function Editor({
 
   const stats = getStats();
 
-  const extractHeadings = () => {
-    if (!note) return [];
-    const regex = /^(#{1,3})\s+(.+)$/gm;
-    const headings = [];
-    let match;
-    while ((match = regex.exec(note.content)) !== null) {
-      headings.push({
-        level: match[1].length,
-        text: match[2],
-        id: match[2].toLowerCase().replace(/[^\w]+/g, '-')
-      });
-    }
-    return headings;
-  };
-
-  const headings = extractHeadings();
-
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background relative">
       {/* Toolbar */}
-      {!isFocusMode && (
       <header className="h-14 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background/80 backdrop-blur-md z-10">
         <div className="flex items-center gap-1 sm:gap-2 py-1 shrink-0">
           <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="text-muted-foreground hover:text-foreground shrink-0">
@@ -638,42 +603,9 @@ export function Editor({
               <option value="serif">Serif</option>
               <option value="mono">Mono</option>
             </select>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsFocusMode(true)}
-              className="h-8 w-8 ml-2 text-muted-foreground hover:text-foreground"
-              title="Focus Mode (Cmd+Shift+F)"
-            >
-              <Eye className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowToc(!showToc)}
-              className={cn("h-8 w-8 text-muted-foreground hover:text-foreground", showToc && "text-primary bg-primary/10")}
-              title="Table of Contents"
-            >
-              <ListOrdered className="w-4 h-4" />
-            </Button>
           </div>
         </div>
       </header>
-      )}
-
-      {/* Focus Mode Exit Button */}
-      {isFocusMode && (
-        <div className="absolute top-4 right-4 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsFocusMode(false)}
-            className="bg-background/80 backdrop-blur-md shadow-sm"
-          >
-            Exit Focus Mode
-          </Button>
-        </div>
-      )}
 
       {/* Editor Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar print:overflow-visible flex">
@@ -800,38 +732,10 @@ export function Editor({
             </div>
           )}
         </div>
-
-        {/* Table of Contents Sidebar */}
-        {showToc && !isFocusMode && headings.length > 0 && (
-          <div className="w-64 shrink-0 border-l border-border bg-muted/20 p-6 hidden lg:block overflow-y-auto custom-scrollbar">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Table of Contents</h4>
-            <div className="space-y-2">
-              {headings.map((heading, i) => (
-                <a
-                  key={i}
-                  href={`#${heading.id}`}
-                  className={cn(
-                    "block text-sm text-muted-foreground hover:text-foreground transition-colors truncate",
-                    heading.level === 1 ? "font-semibold" : heading.level === 2 ? "pl-3" : "pl-6 text-xs"
-                  )}
-                  onClick={(e) => {
-                    if (!isPreviewMode) {
-                      e.preventDefault();
-                      // In edit mode, we can't easily scroll to the exact line without complex logic,
-                      // but we can at least show the structure.
-                    }
-                  }}
-                >
-                  {heading.text}
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Bottom Formatting Bar */}
-      {!isPreviewMode && !isFocusMode && (
+      {!isPreviewMode && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-full px-4 flex justify-center pointer-events-none">
           <div 
             ref={toolbarRef}
