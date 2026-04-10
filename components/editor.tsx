@@ -6,7 +6,7 @@ import {
   Copy, Play, ExternalLink, Check,
   Heading1, Heading2, Heading3, List, ListOrdered, ListTodo,
   Quote, Code, Link, Image, Minus, Table,
-  Undo2, Redo2, Download, Tag, X, Hash, Printer, FileCode, Folder
+  Undo2, Redo2, Download, Tag, X, Hash, Printer, FileCode, Folder, Sigma
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from 'react-markdown';
@@ -136,11 +136,13 @@ export function Editor({
 }: EditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const symbolMenuRef = useRef<HTMLDivElement>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [folderInput, setFolderInput] = useState("");
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showSymbolMenu, setShowSymbolMenu] = useState(false);
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
   const [slashSearch, setSlashSearch] = useState("");
@@ -320,6 +322,9 @@ export function Editor({
     const handleClickOutside = (event: MouseEvent) => {
       if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
         setShowExportMenu(false);
+      }
+      if (symbolMenuRef.current && !symbolMenuRef.current.contains(event.target as Node)) {
+        setShowSymbolMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -946,6 +951,35 @@ export function Editor({
               >
                 <Table className="w-4 h-4" />
               </Button>
+            </div>
+
+            {/* Symbol Group */}
+            <div className="flex items-center gap-0.5 pl-1 border-l border-border relative" ref={symbolMenuRef}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowSymbolMenu(!showSymbolMenu)}
+                className="h-8 w-8 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10 rounded-lg shrink-0"
+                title="Symbols"
+              >
+                <Sigma className="w-4 h-4" />
+              </Button>
+              {showSymbolMenu && (
+                <div className="absolute bottom-full mb-2 right-0 w-64 bg-popover border border-border rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-200 grid grid-cols-5 gap-1">
+                  {['★', '✓', '→', '←', '↑', '↓', '•', '©', '®', '™', '°', '±', '≠', '∞', '≈', '×', '÷', '∑', 'π', 'Ω'].map(sym => (
+                    <button
+                      key={sym}
+                      onClick={() => {
+                        applyFormatting(sym, "");
+                        setShowSymbolMenu(false);
+                      }}
+                      className="flex items-center justify-center h-8 rounded hover:bg-muted text-foreground transition-colors"
+                    >
+                      {sym}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
