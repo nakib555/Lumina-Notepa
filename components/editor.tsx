@@ -743,8 +743,8 @@ export function Editor({
               {/* Slash Command Menu */}
               {slashMenuOpen && (
                 <div 
-                  className="fixed z-50 w-64 md:w-72 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" 
-                  style={{ bottom: '80px', left: '50%', transform: 'translateX(-50%)' }}
+                  className="fixed z-50 w-64 md:w-72 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 zoom-in-95 duration-200 left-1/2 -translate-x-1/2" 
+                  style={{ bottom: '80px' }}
                   onMouseDown={(e) => {
                     if ((e.target as HTMLElement).closest('button')) {
                       e.preventDefault();
@@ -853,7 +853,7 @@ export function Editor({
                 onMouseUp={handleSymbolMouseUp}
                 onMouseMove={handleSymbolMouseMove}
                 className={cn(
-                  "absolute bottom-full mb-2 left-0 right-0 w-full bg-background/90 backdrop-blur-md border border-border rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-200 flex items-center gap-1 overflow-x-auto no-scrollbar touch-pan-x select-none",
+                  "absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-md border border-border rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 zoom-in-95 duration-200 flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[90vw] sm:max-w-full flex-nowrap select-none touch-pan-x",
                   isSymbolDragging ? "cursor-grabbing" : "cursor-grab"
                 )}
               >

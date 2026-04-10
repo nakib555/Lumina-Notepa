@@ -81,72 +81,74 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
               </button>
             </div>
             
-            {rules.map((rule, index) => (
-              <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-2 sm:p-3 rounded-lg border border-border w-full">
-                <div className="flex items-center gap-2 w-full sm:w-1/2">
-                  <select
-                    value={rule.type}
-                    onChange={(e) => handleRuleChange(index, 'type', e.target.value)}
-                    className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 min-w-0"
-                  >
-                    <option value="tag">Tag</option>
-                    <option value="keyword">Keyword</option>
-                    <option value="date">Date</option>
-                  </select>
+            <div className="max-h-[40vh] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+              {rules.map((rule, index) => (
+                <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-2 sm:p-3 rounded-lg border border-border w-full">
+                  <div className="flex items-center gap-2 w-full sm:w-1/2">
+                    <select
+                      value={rule.type}
+                      onChange={(e) => handleRuleChange(index, 'type', e.target.value)}
+                      className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 min-w-0"
+                    >
+                      <option value="tag">Tag</option>
+                      <option value="keyword">Keyword</option>
+                      <option value="date">Date</option>
+                    </select>
+                    
+                    <select
+                      value={rule.operator}
+                      onChange={(e) => handleRuleChange(index, 'operator', e.target.value)}
+                      className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 min-w-0"
+                    >
+                      {rule.type === 'date' ? (
+                        <>
+                          <option value="after">After</option>
+                          <option value="before">Before</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="contains">Contains</option>
+                          <option value="equals">Equals</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
                   
-                  <select
-                    value={rule.operator}
-                    onChange={(e) => handleRuleChange(index, 'operator', e.target.value)}
-                    className="bg-background border border-border rounded-md px-2 py-1.5 text-sm flex-1 min-w-0"
-                  >
+                  <div className="flex items-center gap-2 w-full sm:w-1/2">
                     {rule.type === 'date' ? (
-                      <>
-                        <option value="after">After</option>
-                        <option value="before">Before</option>
-                      </>
+                      <input
+                        type="date"
+                        value={rule.value}
+                        onChange={(e) => handleRuleChange(index, 'value', e.target.value)}
+                        className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm min-w-0"
+                      />
                     ) : (
-                      <>
-                        <option value="contains">Contains</option>
-                        <option value="equals">Equals</option>
-                      </>
+                      <input
+                        type="text"
+                        value={rule.value}
+                        onChange={(e) => handleRuleChange(index, 'value', e.target.value)}
+                        placeholder="Value..."
+                        className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm min-w-0"
+                      />
                     )}
-                  </select>
+                    
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemoveRule(index)} 
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 flex items-center justify-center rounded-md hover:bg-muted"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                
-                <div className="flex items-center gap-2 w-full sm:w-1/2">
-                  {rule.type === 'date' ? (
-                    <input
-                      type="date"
-                      value={rule.value}
-                      onChange={(e) => handleRuleChange(index, 'value', e.target.value)}
-                      className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm min-w-0"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={rule.value}
-                      onChange={(e) => handleRuleChange(index, 'value', e.target.value)}
-                      placeholder="Value..."
-                      className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm min-w-0"
-                    />
-                  )}
-                  
-                  <button 
-                    type="button" 
-                    onClick={() => handleRemoveRule(index)} 
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 flex items-center justify-center rounded-md hover:bg-muted"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              ))}
+              
+              {rules.length === 0 && (
+                <div className="text-center py-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                  No rules defined. Notes will not be automatically added.
                 </div>
-              </div>
-            ))}
-            
-            {rules.length === 0 && (
-              <div className="text-center py-4 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
-                No rules defined. Notes will not be automatically added.
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
