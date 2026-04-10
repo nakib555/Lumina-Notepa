@@ -82,7 +82,7 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
             </div>
             
             {rules.map((rule, index) => (
-              <div key={index} className="relative flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-3 pr-10 rounded-lg border border-border">
+              <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-muted/50 p-2 sm:p-3 rounded-lg border border-border">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <select
                     value={rule.type}
@@ -130,15 +130,15 @@ export function SmartFolderDialog({ isOpen, onClose, onSave, existingFolder }: S
                       className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm min-w-0"
                     />
                   )}
+                  
+                  <button 
+                    type="button" 
+                    onClick={() => handleRemoveRule(index)} 
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 flex items-center justify-center rounded-md hover:bg-muted"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                
-                <button 
-                  type="button" 
-                  onClick={() => handleRemoveRule(index)} 
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-destructive flex items-center justify-center rounded-md hover:bg-muted"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
             ))}
             
