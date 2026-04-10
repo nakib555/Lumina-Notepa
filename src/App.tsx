@@ -50,7 +50,26 @@ export default function App() {
     handleResize();
     
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    
+    // Handle mobile keyboard layout issues
+    const handleVisualViewportResize = () => {
+      if (window.visualViewport) {
+        document.body.style.height = window.visualViewport.height + "px";
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleVisualViewportResize);
+      // Set initial height
+      handleVisualViewportResize();
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleVisualViewportResize);
+      }
+    };
   }, []);
 
   const handleSelectNote = (id: string) => {
@@ -62,7 +81,7 @@ export default function App() {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-full w-full items-center justify-center bg-background">
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-muted"></div>
           <div className="h-4 w-24 bg-muted rounded"></div>
@@ -72,7 +91,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden relative">
+    <div className="flex h-full w-full bg-background overflow-hidden relative">
       <Sidebar
         notes={notes}
         activeNoteId={activeNoteId}

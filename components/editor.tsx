@@ -212,6 +212,12 @@ export function Editor({
     onUpdateNote(note!.id, { content: newContent });
     addToHistory(note!.title, newContent);
 
+    // Auto-resize textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+
     // Check for slash command
     const cursorPosition = e.target.selectionStart;
     const textBeforeCursor = newContent.substring(0, cursorPosition);
@@ -481,10 +487,18 @@ export function Editor({
     return { words, chars, readingTime };
   };
 
+  // Auto-resize on initial load or note change
+  useEffect(() => {
+    if (textareaRef.current && !isPreviewMode) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [note?.content, isPreviewMode]);
+
   const stats = getStats();
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background relative">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-background relative">
       {/* Toolbar */}
       <header className="h-14 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background/80 backdrop-blur-md z-10">
         <div className="flex items-center gap-1 sm:gap-2 py-1 shrink-0">
@@ -609,7 +623,7 @@ export function Editor({
 
       {/* Editor Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar print:overflow-visible flex">
-        <div className="flex-1 max-w-3xl mx-auto px-6 py-12 md:px-12 md:py-16 flex flex-col gap-6 min-h-full">
+        <div className="flex-1 max-w-3xl mx-auto px-6 pt-6 pb-12 md:px-12 md:pt-8 md:pb-16 flex flex-col gap-6 min-h-full">
           <div className="space-y-4 shrink-0">
             <input
               type="text"
@@ -672,7 +686,7 @@ export function Editor({
             <div className="prose prose-slate dark:prose-invert max-w-none pb-32 font-sans text-[1.125rem] prose-p:leading-relaxed prose-headings:font-semibold prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-blockquote:border-l-4 prose-blockquote:border-primary/50 prose-blockquote:bg-muted/30 prose-blockquote:px-4 prose-blockquote:py-2 prose-blockquote:not-italic prose-blockquote:text-muted-foreground prose-code:text-primary prose-code:bg-muted/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl">
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm, remarkBreaks, [remarkToc, { heading: 'toc|contents|table of contents', tight: true }]]} 
-                rehypePlugins={[rehypeRaw, rehypeSlug, [rehypeAutolinkHeadings, { behavior: 'wrap' }]]}
+                rehypePlugins={[rehypeRaw, rehypeSlug]}
                 components={{
                   pre: ({ children }) => <>{children}</>,
                   code: (props) => <CodeBlock {...props} theme={theme} />
@@ -690,7 +704,7 @@ export function Editor({
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 placeholder="Start typing with markdown support... (# Heading, *italic*, **bold**, etc.)\nType '/' for commands or drag & drop images."
-                className="w-full h-full min-h-[500px] pb-32 text-[1.125rem] text-foreground placeholder:text-muted-foreground/50 border-none outline-none bg-transparent resize-none focus-visible:ring-0 p-0 leading-relaxed font-sans"
+                className="w-full min-h-[500px] pb-32 text-[1.125rem] text-foreground placeholder:text-muted-foreground/50 border-none outline-none bg-transparent resize-none focus-visible:ring-0 p-0 leading-relaxed font-sans overflow-hidden"
               />
               
               {/* Slash Command Menu */}
@@ -736,7 +750,7 @@ export function Editor({
 
       {/* Bottom Formatting Bar */}
       {!isPreviewMode && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-full px-4 flex justify-center pointer-events-none">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-20 w-full max-w-full px-4 flex justify-center pointer-events-none">
           <div 
             ref={toolbarRef}
             onMouseDown={handleMouseDown}
