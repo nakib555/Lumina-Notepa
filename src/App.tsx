@@ -53,17 +53,17 @@ export default function App() {
 
   if (!isLoaded) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#fcfcfc]">
+      <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-slate-200"></div>
-          <div className="h-4 w-24 bg-slate-200 rounded"></div>
+          <div className="w-12 h-12 rounded-full bg-muted"></div>
+          <div className="h-4 w-24 bg-muted rounded"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-full bg-[#fcfcfc] overflow-hidden relative">
+    <div className="flex h-screen w-full bg-background overflow-hidden relative">
       <Sidebar
         notes={notes}
         activeNoteId={activeNoteId}
