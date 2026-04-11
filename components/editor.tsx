@@ -15,7 +15,6 @@ import remarkBreaks from 'remark-breaks';
 import remarkToc from 'remark-toc';
 import rehypeRaw from 'rehype-raw';
 import rehypeSlug from 'rehype-slug';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import { cn } from "@/lib/utils";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -124,6 +123,18 @@ interface HistoryItem {
   title: string;
   content: string;
 }
+
+const processCustomMarkdown = (content: string) => {
+  if (!content) return "";
+  // Split by code blocks to avoid replacing inside them
+  const parts = content.split(/(```[\s\S]*?```|`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) return part; // It's a code block
+    // Replace [text]{size} with <span style="font-size: size;">text</span>
+    // Using non-greedy match for the text part to allow multiple on same line
+    return part.replace(/\[(.*?)\]\{([^}]+)\}/g, '<span style="font-size: $2;">$1</span>');
+  }).join('');
+};
 
 export function Editor({ 
   note, 
@@ -519,6 +530,60 @@ export function Editor({
     }, 0);
   };
 
+  const applyFontSize = (size: string) => {
+    if (!textareaRef.current || !note) return;
+
+    let start = textareaRef.current.selectionStart;
+    let end = textareaRef.current.selectionEnd;
+    const text = note.content;
+
+    // 1. Check if selection is exactly the text inside [text]{size}
+    if (start > 0 && text.charAt(start - 1) === '[') {
+      const after = text.substring(end);
+      const match = after.match(/^\]\{\d+(?:px|pt)\}/);
+      if (match) {
+        start -= 1;
+        end += match[0].length;
+      }
+    } else if (start === end) {
+      // 2. Check if cursor is just resting inside a [text]{size} block
+      const before = text.substring(0, start);
+      const lastOpen = before.lastIndexOf('[');
+      const lastClose = before.lastIndexOf(']');
+      if (lastOpen !== -1 && lastOpen > lastClose) {
+        const after = text.substring(lastOpen);
+        const fullMatch = after.match(/^\[(.*?)\]\{\d+(?:px|pt)\}/);
+        if (fullMatch && lastOpen + fullMatch[0].length >= start) {
+          start = lastOpen;
+          end = lastOpen + fullMatch[0].length;
+        }
+      }
+    }
+
+    const selectedText = text.substring(start, end);
+    
+    // Strip any existing font size markdown within the selection to prevent overlaying
+    const strippedText = selectedText.replace(/\[(.*?)\]\{\d+(?:px|pt)\}/g, '$1');
+    
+    const textToWrap = strippedText || "text";
+    const replacement = `[${textToWrap}]{${size}pt}`;
+    
+    const newText = text.substring(0, start) + replacement + text.substring(end);
+
+    onUpdateNote(note.id, { content: newText });
+    addToHistory(note.title, newText, true);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(
+          start + 1,
+          start + 1 + textToWrap.length
+        );
+      }
+    }, 0);
+  };
+
   const getStats = () => {
     if (!note) return { words: 0, chars: 0, readingTime: 0 };
     const text = note.content;
@@ -725,7 +790,7 @@ export function Editor({
                   code: (props) => <CodeBlock {...props} theme={theme} />
                 }}
               >
-                {note.content || "_No content yet..._"}
+                {processCustomMarkdown(note.content || "_No content yet..._")}
               </ReactMarkdown>
             </div>
           ) : (
@@ -887,7 +952,7 @@ export function Editor({
               <select
                 onChange={(e) => {
                   if (e.target.value) {
-                    applyFormatting(`<span class="${e.target.value}">`, '</span>');
+                    applyFontSize(e.target.value);
                     e.target.value = ""; // reset
                   }
                 }}
@@ -896,14 +961,9 @@ export function Editor({
                 title="Font Size"
               >
                 <option value="" disabled>Size</option>
-                <option value="text-xs">12px</option>
-                <option value="text-sm">14px</option>
-                <option value="text-base">16px</option>
-                <option value="text-lg">18px</option>
-                <option value="text-xl">20px</option>
-                <option value="text-2xl">24px</option>
-                <option value="text-3xl">30px</option>
-                <option value="text-4xl">36px</option>
+                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72].map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
               </select>
             </div>
 
