@@ -360,7 +360,9 @@ export const EditorArea = ({
       span.textContent = '\u200b';
       range.insertNode(span);
       rect = span.getBoundingClientRect();
-      span.parentNode?.removeChild(span);
+      if (span.parentNode) {
+        span.parentNode.removeChild(span);
+      }
     }
     
     if (rect.top === 0 && rect.bottom === 0) return;

@@ -96,7 +96,9 @@ export const useEditorFormatting = (
           span.innerHTML = fontEl.innerHTML;
         }
         
-        fontEl.parentNode?.replaceChild(span, fontEl);
+        if (fontEl.parentNode) {
+          fontEl.parentNode.replaceChild(span, fontEl);
+        }
         
         if (isCollapsed) {
           const range = document.createRange();

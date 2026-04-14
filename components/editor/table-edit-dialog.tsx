@@ -84,8 +84,8 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
           </DialogHeader>
         </div>
 
-        <Tabs defaultValue="dimensions" className="w-full">
-          <div className="px-6 pt-4 bg-background">
+        <div className="px-6 pt-4 bg-background">
+          <Tabs defaultValue="dimensions" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="dimensions" className="flex items-center gap-2">
                 <LayoutGrid className="w-4 h-4" />
@@ -160,9 +160,9 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
                 />
               </div>
             </TabsContent>
-          </div>
+          </Tabs>
 
-          <div className="p-6 bg-background pt-2">
+          <div className="pt-6 pb-2">
             {/* Preview */}
             <div className="space-y-3">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview</Label>
@@ -196,7 +196,7 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
               </div>
             </div>
           </div>
-        </Tabs>
+        </div>
 
         <div className="p-4 border-t border-border/50 bg-muted/10 flex items-center justify-end gap-3">
           <Button variant="ghost" onClick={onClose} className="hover:bg-background">Cancel</Button>
