@@ -209,7 +209,7 @@ export function Editor({
 
       {/* Editor Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar print:overflow-visible flex">
-        <div className="flex-1 max-w-3xl mx-auto px-8 pt-10 pb-24 md:px-16 md:pt-16 md:pb-32 flex flex-col gap-8 min-h-full">
+        <div className="flex-1 w-full min-w-0 max-w-3xl mx-auto px-8 pt-10 pb-24 md:px-16 md:pt-16 md:pb-32 flex flex-col gap-8 min-h-full">
           <div className="space-y-6 shrink-0">
             <input
               type="text"

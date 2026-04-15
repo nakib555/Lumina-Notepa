@@ -60,7 +60,7 @@ export const useEditorFormatting = (
       const taskHTML = `<ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" disabled /> </li></ul>`;
       document.execCommand('insertHTML', false, taskHTML);
     } else if (prefix.includes("| Header |")) {
-      const tableHTML = `<div class="overflow-x-auto w-full"><table class="w-full"><thead><tr><th>Header</th><th>Header</th></tr></thead><tbody><tr><td>Cell</td><td>Cell</td></tr></tbody></table></div><p><br></p>`;
+      const tableHTML = `<div class="overflow-x-auto w-full table-wrapper my-8"><table class="w-full m-0"><thead><tr><th>Header</th><th>Header</th></tr></thead><tbody><tr><td>Cell</td><td>Cell</td></tr></tbody></table></div><p><br></p>`;
       document.execCommand('insertHTML', false, tableHTML);
     } else if (prefix === "```\n") {
       const codeHTML = `<pre><code>// Your code here...</code></pre><p><br></p>`;

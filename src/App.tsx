@@ -6,6 +6,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { AnimatePresence, motion } from "motion/react";
 import { Sparkles, Feather, Layers, ArrowRight } from "lucide-react";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { AutoUpdater } from "@/components/auto-updater";
 
 export default function App() {
   const {
@@ -225,6 +226,7 @@ export default function App() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="flex h-full w-full bg-background overflow-hidden relative"
         >
+          <AutoUpdater />
           <Sidebar 
             notes={notes}
             smartFolders={smartFolders}

@@ -4,8 +4,11 @@ import { Note, SmartFolder } from "@/hooks/use-notes";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { usePWAInstall } from "@/hooks/use-pwa-install";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SmartFolderDialog } from "./smart-folder-dialog";
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import packageJson from '../package.json';
 
 interface SidebarProps {
   notes: Note[];
@@ -43,6 +46,15 @@ export function Sidebar({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSmartFolderDialogOpen, setIsSmartFolderDialogOpen] = useState(false);
   const [editingSmartFolder, setEditingSmartFolder] = useState<SmartFolder | undefined>();
+  const [appVersion, setAppVersion] = useState<string>(packageJson.version || "1.0.0");
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.getInfo().then(info => {
+        setAppVersion(info.version);
+      }).catch(err => console.error("Failed to get app version", err));
+    }
+  }, []);
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -407,6 +419,13 @@ export function Sidebar({
           </Button>
         </div>
       )}
+
+      {/* App Version */}
+      <div className="p-4 border-t border-border text-center">
+        <span className="text-xs text-muted-foreground font-medium">
+          Version {appVersion}
+        </span>
+      </div>
     </div>
 
       <SmartFolderDialog 

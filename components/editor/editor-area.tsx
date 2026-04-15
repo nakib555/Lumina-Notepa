@@ -6,8 +6,12 @@ import { Sparkles, Trash2, Settings2 } from "lucide-react";
 import { TableEditDialog } from './table-edit-dialog';
 
 const renderer = new marked.Renderer();
-renderer.table = function(header, body) {
-  return `<div class="overflow-x-auto w-full"><table class="w-full">\n<thead>\n${header}</thead>\n<tbody>\n${body}</tbody>\n</table></div>\n`;
+const originalTable = renderer.table;
+renderer.table = function(token) {
+  const html = originalTable.call(this, token);
+  // Add w-full and m-0 to the table itself
+  const styledHtml = html.replace('<table>', '<table class="w-full m-0">');
+  return `<div class="overflow-x-auto w-full table-wrapper my-8">\n${styledHtml}</div>\n`;
 };
 
 const parseMarkdown = (text: string) => {
@@ -157,7 +161,11 @@ export const EditorArea = ({
       replacement: function (content, node) {
         const table = node.querySelector('table');
         if (table) {
-          return `\n\n<div class="overflow-x-auto w-full rounded-table rounded-xl border border-border">\n${table.outerHTML}\n</div>\n\n`;
+          const classes = Array.from(node.classList);
+          const curveClass = classes.find(c => c.startsWith('rounded-') && c !== 'rounded-table') || 'rounded-xl';
+          table.classList.add('border-hidden', 'm-0', 'w-full');
+          table.classList.remove('border-0');
+          return '\n\n<div class="overflow-x-auto w-full table-wrapper my-8 rounded-table ' + curveClass + ' border border-border">\n' + table.outerHTML + '\n</div>\n\n';
         }
         return content;
       }
@@ -231,7 +239,7 @@ export const EditorArea = ({
     }
   }, [hoveredTable]);
 
-  const handleTableEditConfirm = useCallback((targetRows: number, targetCols: number, rounded: boolean) => {
+  const handleTableEditConfirm = useCallback((targetRows: number, targetCols: number, curveClass: string) => {
     if (!hoveredTable) return;
 
     const tbody = hoveredTable.querySelector('tbody');
@@ -305,19 +313,12 @@ export const EditorArea = ({
     // Handle rounded corners
     const wrapper = hoveredTable.closest('.overflow-x-auto');
     if (wrapper) {
-      if (rounded) {
-        wrapper.classList.add('rounded-table');
-        wrapper.classList.add('rounded-xl');
-        wrapper.classList.add('border');
-        wrapper.classList.add('border-border');
-        // Add a class to the table to remove its outer borders so they don't double up with the wrapper
-        hoveredTable.classList.add('border-0');
-      } else {
-        wrapper.classList.remove('rounded-table');
-        wrapper.classList.remove('rounded-xl');
-        wrapper.classList.remove('border');
-        wrapper.classList.remove('border-border');
-        hoveredTable.classList.remove('border-0');
+      wrapper.classList.remove('rounded-table', 'rounded-sm', 'rounded-md', 'rounded-lg', 'rounded-xl', 'rounded-2xl', 'rounded-3xl', 'border', 'border-border');
+      hoveredTable.classList.remove('border-hidden', 'border-0');
+      
+      if (curveClass) {
+        wrapper.classList.add('rounded-table', curveClass, 'border', 'border-border');
+        hoveredTable.classList.add('border-hidden');
       }
     }
 
@@ -415,7 +416,7 @@ export const EditorArea = ({
         onDragOver={handleDragOver}
         onKeyUp={handleCursorMove}
         onClick={handleCursorMove}
-        className="prose prose-slate dark:prose-invert max-w-full overflow-x-hidden break-words pb-[40vh] text-lg prose-p:leading-[1.8] prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-strong:font-semibold prose-strong:text-foreground prose-li:marker:text-muted-foreground prose-hr:border-border prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:px-6 prose-blockquote:py-3 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:rounded-r-lg prose-code:text-foreground prose-code:bg-muted/60 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.9em] prose-code:font-medium prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:text-left prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px]"
+        className="prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] text-lg prose-p:leading-[1.8] prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-strong:font-semibold prose-strong:text-foreground prose-li:marker:text-muted-foreground prose-hr:border-border prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:px-6 prose-blockquote:py-3 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:rounded-r-lg prose-code:text-foreground prose-code:bg-muted/60 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.9em] prose-code:font-medium prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:text-left prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px]"
         role="textbox"
         aria-multiline="true"
         aria-label="Editor content"
