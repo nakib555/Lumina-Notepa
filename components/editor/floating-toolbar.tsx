@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface FloatingToolbarProps {
   toolbarRef: React.RefObject<HTMLDivElement | null>;
@@ -21,9 +22,12 @@ interface FloatingToolbarProps {
   applyFormatting: (prefix: string, suffix?: string, toggle?: boolean) => void;
   onToggleSymbolMenu: () => void;
   onInsertImageClick: () => void;
+  onInsertLinkClick: () => void;
   textareaRef: React.RefObject<HTMLDivElement | null>;
   isAutoMarkdownEnabled: boolean;
   setIsAutoMarkdownEnabled: (enabled: boolean) => void;
+  showSymbolMenu: boolean;
+  setShowSymbolMenu: (show: boolean) => void;
 }
 
 export const FloatingToolbar = ({
@@ -39,9 +43,12 @@ export const FloatingToolbar = ({
   applyFormatting,
   onToggleSymbolMenu,
   onInsertImageClick,
+  onInsertLinkClick,
   textareaRef,
   isAutoMarkdownEnabled,
-  setIsAutoMarkdownEnabled
+  setIsAutoMarkdownEnabled,
+  showSymbolMenu,
+  setShowSymbolMenu
 }: FloatingToolbarProps) => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -82,7 +89,7 @@ export const FloatingToolbar = ({
     }
   };
 
-  const moveCursor = (direction: 'left' | 'right' | 'up' | 'down') => {
+  const moveCursor = (direction: 'left' | 'right' | 'up' | 'down' | 'word-left' | 'word-right') => {
     ensureFocus();
     const selection = window.getSelection();
     if (!selection) return;
@@ -95,6 +102,8 @@ export const FloatingToolbar = ({
     else if (direction === 'right') dirStr = 'forward';
     else if (direction === 'up') { dirStr = 'backward'; granularity = 'line'; }
     else if (direction === 'down') { dirStr = 'forward'; granularity = 'line'; }
+    else if (direction === 'word-left') { dirStr = 'backward'; granularity = 'word'; }
+    else if (direction === 'word-right') { dirStr = 'forward'; granularity = 'word'; }
     
     // modify is non-standard but works in many browsers
     if ('modify' in selection && typeof selection.modify === 'function') {
@@ -103,32 +112,90 @@ export const FloatingToolbar = ({
     }
   };
 
+  const handleSelectAll = () => {
+    ensureFocus();
+    document.execCommand('selectAll');
+    setIsSelecting(true);
+  };
+
   const handleCut = async () => {
     ensureFocus();
     try {
-      document.execCommand('cut');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          const selection = window.getSelection();
+          if (selection && !selection.isCollapsed) {
+            await navigator.clipboard.writeText(selection.toString());
+            document.execCommand('delete');
+            return;
+          }
+        } catch (clipboardError) {
+          console.warn('Clipboard API failed, falling back to execCommand', clipboardError);
+        }
+      }
+      
+      const success = document.execCommand('cut');
+      if (!success) {
+        toast.error("Your browser's security settings prevent cutting via this button. Please use Ctrl+X (or Cmd+X).");
+      }
     } catch (err) {
       console.error('Cut failed', err);
+      toast.error("Your browser's security settings prevent cutting via this button. Please use Ctrl+X (or Cmd+X).");
     }
   };
 
   const handleCopy = async () => {
     ensureFocus();
     try {
-      document.execCommand('copy');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          const selection = window.getSelection();
+          if (selection && !selection.isCollapsed) {
+            await navigator.clipboard.writeText(selection.toString());
+            toast.success("Copied to clipboard");
+            return;
+          }
+        } catch (clipboardError) {
+          console.warn('Clipboard API failed, falling back to execCommand', clipboardError);
+        }
+      }
+      
+      const success = document.execCommand('copy');
+      if (!success) {
+        toast.error("Your browser's security settings prevent copying via this button. Please use Ctrl+C (or Cmd+C).");
+      } else {
+        toast.success("Copied to clipboard");
+      }
     } catch (err) {
       console.error('Copy failed', err);
+      toast.error("Your browser's security settings prevent copying via this button. Please use Ctrl+C (or Cmd+C).");
     }
   };
 
   const handlePaste = async () => {
     ensureFocus();
     try {
-      const text = await navigator.clipboard.readText();
-      document.execCommand('insertText', false, text);
-      setTimeout(scrollToSelection, 10);
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        try {
+          const text = await navigator.clipboard.readText();
+          document.execCommand('insertText', false, text);
+          setTimeout(scrollToSelection, 10);
+          return;
+        } catch (clipboardError) {
+          console.warn('Clipboard API failed, falling back to execCommand', clipboardError);
+        }
+      }
+      
+      // Fallback
+      const success = document.execCommand('paste');
+      if (!success) {
+        toast.error("Your browser's security settings prevent pasting via this button. Please use Ctrl+V (or Cmd+V) to paste.");
+      } else {
+        setTimeout(scrollToSelection, 10);
+      }
     } catch (err) {
       console.error('Failed to paste text: ', err);
+      toast.error("Your browser's security settings prevent pasting via this button. Please use Ctrl+V (or Cmd+V) to paste.");
     }
   };
 
@@ -168,6 +235,18 @@ export const FloatingToolbar = ({
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => moveCursor('word-left')}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
+              title="Move Word Left"
+            >
+              <div className="flex items-center justify-center">
+                <span className="text-[10px] font-bold mr-[1px]">W</span>
+                <ArrowLeft className="w-3 h-3" />
+              </div>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => moveCursor('up')}
               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
               title="Move Up"
@@ -186,6 +265,18 @@ export const FloatingToolbar = ({
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => moveCursor('word-right')}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
+              title="Move Word Right"
+            >
+              <div className="flex items-center justify-center">
+                <ArrowRight className="w-3 h-3" />
+                <span className="text-[10px] font-bold ml-[1px]">W</span>
+              </div>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => moveCursor('right')}
               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
               title="Move Right"
@@ -195,6 +286,15 @@ export const FloatingToolbar = ({
           </div>
 
           <div className="flex items-center gap-0.5 px-1 border-r border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSelectAll}
+              className="h-8 px-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
+              title="Select All"
+            >
+              All
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -257,7 +357,13 @@ export const FloatingToolbar = ({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsSelectionMode(!isSelectionMode)}
+            onClick={() => {
+              const newMode = !isSelectionMode;
+              setIsSelectionMode(newMode);
+              if (newMode) {
+                setShowSymbolMenu(false);
+              }
+            }}
             className={cn(
               "h-8 w-8 rounded-lg shrink-0 transition-colors",
               isSelectionMode
@@ -422,7 +528,7 @@ export const FloatingToolbar = ({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => applyFormatting("[", "](url)")}
+          onClick={onInsertLinkClick}
           className="h-8 w-8 text-cyan-500 hover:text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 rounded-lg shrink-0"
           title="Link"
         >
@@ -538,7 +644,12 @@ export const FloatingToolbar = ({
         <Button
           variant="ghost"
           size="icon"
-          onClick={onToggleSymbolMenu}
+          onClick={() => {
+            onToggleSymbolMenu();
+            if (!showSymbolMenu) {
+              setIsSelectionMode(false);
+            }
+          }}
           className="h-8 w-8 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/10 rounded-lg shrink-0"
           title="Symbols"
         >

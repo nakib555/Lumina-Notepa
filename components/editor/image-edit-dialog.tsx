@@ -125,9 +125,74 @@ export function ImageEditDialog({ isOpen, onClose, image, onConfirm }: ImageEdit
           
           <TabsContent value="resize" className="space-y-4 mt-4">
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col items-center justify-center border border-border rounded-lg p-4 bg-muted/30 overflow-hidden min-h-[200px]">
+                {imgSrc ? (
+                  <div className="relative group inline-block">
+                    <img
+                      src={imgSrc}
+                      alt="Resize preview"
+                      style={{ 
+                        width: width.endsWith('%') ? width : (width === 'auto' ? 'auto' : width),
+                        height: height === 'auto' ? 'auto' : height,
+                        maxWidth: '100%',
+                        maxHeight: '300px',
+                        objectFit: 'contain'
+                      }}
+                      className="transition-all duration-200"
+                    />
+                    {/* Visual resize handles simulation */}
+                    <div className="absolute inset-0 border-2 border-primary/50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                      <div className="absolute top-0 left-0 w-2 h-2 bg-primary -translate-x-1/2 -translate-y-1/2" />
+                      <div className="absolute top-0 right-0 w-2 h-2 bg-primary translate-x-1/2 -translate-y-1/2" />
+                      <div className="absolute bottom-0 left-0 w-2 h-2 bg-primary -translate-x-1/2 translate-y-1/2" />
+                      <div className="absolute bottom-0 right-0 w-2 h-2 bg-primary translate-x-1/2 translate-y-1/2" />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No image source</p>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Visual Scale</Label>
+                  <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-0.5 rounded">
+                    {width.endsWith('%') ? width : 'Custom'}
+                  </span>
+                </div>
+                <input 
+                  type="range" 
+                  min="10" 
+                  max="100" 
+                  value={width.endsWith('%') ? width.replace('%', '') : 100} 
+                  onChange={(e) => {
+                    setWidth(`${e.target.value}%`);
+                    setHeight('auto');
+                  }}
+                  className="w-full accent-primary"
+                />
+                <div className="flex gap-2 pt-1">
+                  {[25, 50, 75, 100].map((preset) => (
+                    <Button
+                      key={preset}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs h-7"
+                      onClick={() => {
+                        setWidth(`${preset}%`);
+                        setHeight('auto');
+                      }}
+                    >
+                      {preset}%
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
                 <div className="space-y-2">
-                  <Label htmlFor="img-width">Width</Label>
+                  <Label htmlFor="img-width">Width (Exact)</Label>
                   <Input 
                     id="img-width" 
                     placeholder="e.g. 100%, 300px" 
@@ -136,7 +201,7 @@ export function ImageEditDialog({ isOpen, onClose, image, onConfirm }: ImageEdit
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="img-height">Height</Label>
+                  <Label htmlFor="img-height">Height (Exact)</Label>
                   <Input 
                     id="img-height" 
                     placeholder="e.g. auto, 200px" 
@@ -145,9 +210,25 @@ export function ImageEditDialog({ isOpen, onClose, image, onConfirm }: ImageEdit
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Tip: Use "auto" for height to maintain aspect ratio.
-              </p>
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-muted-foreground">
+                  Tip: Use the slider for visual resizing or enter exact dimensions.
+                </p>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-xs h-8"
+                  onClick={() => {
+                    if (image) {
+                      setWidth(`${image.naturalWidth}px`);
+                      setHeight('auto');
+                    }
+                  }}
+                >
+                  Reset to Original
+                </Button>
+              </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
                 <Button onClick={handleResizeConfirm}>Apply Resize</Button>

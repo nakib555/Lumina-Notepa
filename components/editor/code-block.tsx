@@ -49,17 +49,17 @@ export const CodeBlock = ({ inline, className, children, theme, ...props }: Code
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-1.5 px-1 py-1 rounded text-[13px] font-medium transition-all text-emerald-600 hover:opacity-80" title="Run Code">
+            <button className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[13px] font-medium transition-all text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700 dark:hover:text-emerald-400" title="Run Code">
               <Play className="w-3.5 h-3.5 fill-current" />
               Run
             </button>
-            <button className="flex items-center gap-1.5 px-1 py-1 rounded text-[13px] font-medium text-purple-600 hover:opacity-80 transition-all" title="Open in Side Panel">
+            <button className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[13px] font-medium text-purple-600 hover:bg-purple-500/10 hover:text-purple-700 dark:hover:text-purple-400 transition-all" title="Open in Side Panel">
               <ExternalLink className="w-3.5 h-3.5" />
               Open
             </button>
             <button 
               onClick={handleCopy}
-              className="flex items-center gap-1.5 px-1 py-1 rounded text-[13px] font-medium text-muted-foreground hover:text-foreground transition-all"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[13px] font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-all active:scale-95"
               aria-label="Copy code"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -72,9 +72,20 @@ export const CodeBlock = ({ inline, className, children, theme, ...props }: Code
             style={isDark ? oneDark : oneLight}
             language={language || 'text'}
             PreTag="div"
+            showLineNumbers={true}
+            lineNumberStyle={{
+              minWidth: '3em',
+              paddingRight: '1em',
+              color: 'var(--muted-foreground)',
+              opacity: 0.4,
+              textAlign: 'right',
+              userSelect: 'none',
+              borderRight: '1px solid var(--border)',
+              marginRight: '1em'
+            }}
             customStyle={{
               margin: 0,
-              padding: '1.5rem',
+              padding: '1rem 0',
               fontSize: '14px',
               backgroundColor: 'transparent',
               fontFamily: '"JetBrains Mono", "Fira Code", monospace',

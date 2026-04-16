@@ -24,6 +24,7 @@ interface BottomBarProps {
   applyFontSize: (size: string) => void;
   textareaRef: React.RefObject<HTMLDivElement | null>;
   onInsertImageClick: () => void;
+  onInsertLinkClick: () => void;
   isAutoMarkdownEnabled: boolean;
   setIsAutoMarkdownEnabled: (enabled: boolean) => void;
 }
@@ -50,6 +51,7 @@ export const BottomBar = ({
   applyFontSize,
   textareaRef,
   onInsertImageClick,
+  onInsertLinkClick,
   isAutoMarkdownEnabled,
   setIsAutoMarkdownEnabled
 }: BottomBarProps) => {
@@ -133,8 +135,11 @@ export const BottomBar = ({
           onToggleSymbolMenu={() => setShowSymbolMenu(!showSymbolMenu)}
           textareaRef={textareaRef}
           onInsertImageClick={onInsertImageClick}
+          onInsertLinkClick={onInsertLinkClick}
           isAutoMarkdownEnabled={isAutoMarkdownEnabled}
           setIsAutoMarkdownEnabled={setIsAutoMarkdownEnabled}
+          showSymbolMenu={showSymbolMenu}
+          setShowSymbolMenu={setShowSymbolMenu}
         />
       </div>
     </div>

@@ -13,6 +13,7 @@ import { FileText, Menu } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { ImageInsertDialog } from "./editor/image-insert-dialog";
+import { LinkEditDialog } from "./editor/link-edit-dialog";
 import { toast } from "sonner";
 
 interface EditorProps {
@@ -40,6 +41,8 @@ export function Editor({
 
   const [showSymbolMenu, setShowSymbolMenu] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [initialLinkText, setInitialLinkText] = useState('');
   const [isAutoMarkdownEnabled, setIsAutoMarkdownEnabled] = useState(false);
   const savedRangeRef = useRef<Range | null>(null);
 
@@ -71,23 +74,24 @@ export function Editor({
   const editorAreaRef = useRef<EditorAreaRef>(null);
 
   const handleUndo = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      document.execCommand('undo');
+    }
     if (editorAreaRef.current) {
       editorAreaRef.current.flushPreviewEdit();
     }
-    // Use setTimeout to ensure the flush (which updates state) completes before undoing
-    setTimeout(() => {
-      originalHandleUndo();
-    }, 0);
-  }, [originalHandleUndo]);
+  }, []);
 
   const handleRedo = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      document.execCommand('redo');
+    }
     if (editorAreaRef.current) {
       editorAreaRef.current.flushPreviewEdit();
     }
-    setTimeout(() => {
-      originalHandleRedo();
-    }, 0);
-  }, [originalHandleRedo]);
+  }, []);
 
   const {
     showExportMenu,
@@ -127,6 +131,24 @@ export function Editor({
     addToHistory(newTitle, note!.content);
   };
 
+  const handleInsertLink = (url: string, text: string) => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      if (savedRangeRef.current) {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(savedRangeRef.current);
+      }
+      
+      const linkHTML = `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      document.execCommand('insertHTML', false, linkHTML);
+      
+      if (editorAreaRef.current) {
+        editorAreaRef.current.flushPreviewEdit();
+      }
+    }
+  };
+
   const handleInsertImageUrl = (url: string, alt: string) => {
     if (textareaRef.current) {
       textareaRef.current.focus();
@@ -135,7 +157,10 @@ export function Editor({
         selection?.removeAllRanges();
         selection?.addRange(savedRangeRef.current);
       }
-      document.execCommand('insertText', false, `![${alt}](${url})`);
+      document.execCommand('insertHTML', false, `<img src="${url}" alt="${alt}" style="max-width: 100%;" /><p>&#8203;</p>`);
+      if (editorAreaRef.current) {
+        editorAreaRef.current.flushPreviewEdit();
+      }
       toast.success("Image added successfully");
     }
   };
@@ -151,7 +176,10 @@ export function Editor({
           selection?.removeAllRanges();
           selection?.addRange(savedRangeRef.current);
         }
-        document.execCommand('insertHTML', false, `<img src="${base64String}" alt="Uploaded Image" style="max-width: 100%;" />`);
+        document.execCommand('insertHTML', false, `<img src="${base64String}" alt="Uploaded Image" style="max-width: 100%;" /><p>&#8203;</p>`);
+        if (editorAreaRef.current) {
+          editorAreaRef.current.flushPreviewEdit();
+        }
         toast.success("Image added successfully");
       }
     };
@@ -244,8 +272,8 @@ export function Editor({
       />
 
       {/* Editor Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar print:overflow-visible flex">
-        <div className="flex-1 w-full min-w-0 px-8 pt-10 pb-24 md:px-12 md:pt-16 md:pb-32 flex flex-col gap-8 min-h-full">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar print:overflow-visible flex">
+        <div className="flex-1 w-full min-w-0 max-w-full px-8 pt-10 pb-24 md:px-12 md:pt-16 md:pb-32 flex flex-col gap-8 min-h-full">
           <div className="space-y-6 shrink-0">
             <input
               type="text"
@@ -316,6 +344,17 @@ export function Editor({
           }
           setShowImageDialog(true);
         }}
+        onInsertLinkClick={() => {
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+            setInitialLinkText(selection.toString());
+          } else {
+            savedRangeRef.current = null;
+            setInitialLinkText('');
+          }
+          setShowLinkDialog(true);
+        }}
       />
 
       <ImageInsertDialog 
@@ -323,6 +362,13 @@ export function Editor({
         onClose={() => setShowImageDialog(false)}
         onInsertUrl={handleInsertImageUrl}
         onInsertFile={handleInsertImageFile}
+      />
+
+      <LinkEditDialog
+        isOpen={showLinkDialog}
+        onClose={() => setShowLinkDialog(false)}
+        onConfirm={handleInsertLink}
+        initialText={initialLinkText}
       />
     </div>
   );

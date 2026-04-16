@@ -62,7 +62,6 @@ export const EditorHeader = ({
             size="icon" 
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleUndo} 
-            disabled={historyIndex <= 0}
             className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
             title="Undo (Ctrl+Z)"
             aria-label="Undo"
@@ -74,7 +73,6 @@ export const EditorHeader = ({
             size="icon" 
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleRedo} 
-            disabled={historyIndex >= historyLength - 1}
             className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
             title="Redo (Ctrl+Y)"
             aria-label="Redo"

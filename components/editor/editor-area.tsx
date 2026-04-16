@@ -4,9 +4,13 @@ import { gfm } from 'turndown-plugin-gfm';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/atom-one-light.css';
-import { Sparkles, Trash2, Settings2 } from "lucide-react";
+import { Sparkles, Trash2, Settings2, ExternalLink } from "lucide-react";
 import { TableEditDialog } from './table-edit-dialog';
 import { ImageEditDialog } from './image-edit-dialog';
+import markedKatex from 'marked-katex-extension';
+import 'katex/dist/katex.min.css';
+
+marked.use(markedKatex({ throwOnError: false, nonStandard: true }));
 
 const renderer = new marked.Renderer();
 const originalTable = renderer.table;
@@ -14,7 +18,7 @@ renderer.table = function(token) {
   const html = originalTable.call(this, token);
   // Add w-full and m-0 to the table itself
   const styledHtml = html.replace('<table>', '<table class="w-full m-0">');
-  return `<div class="overflow-x-auto w-full table-wrapper my-8">\n${styledHtml}</div>\n`;
+  return `<div class="overflow-x-auto max-w-full w-full table-wrapper my-8">\n${styledHtml}</div>\n`;
 };
 
 renderer.image = function(token) {
@@ -22,7 +26,29 @@ renderer.image = function(token) {
   const alt = token.text;
   const title = token.title ? ` title="${token.title}"` : '';
   
-  return `<span class="image-wrapper inline-block relative max-w-full my-4"><img src="${src}" alt="${alt}"${title} class="rounded-lg max-w-full h-auto cursor-pointer border border-transparent hover:border-indigo-500 transition-colors" /></span>`;
+  return `<span class="image-wrapper block relative max-w-full my-4"><img src="${src}" alt="${alt}"${title} class="rounded-lg max-w-full h-auto cursor-pointer border border-transparent hover:border-indigo-500 transition-colors" /></span>`;
+};
+
+renderer.html = function(token) {
+  const html = token.text;
+  if (html.trim().startsWith('<img')) {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const img = doc.querySelector('img');
+      if (img) {
+        const src = img.getAttribute('src') || '';
+        const alt = img.getAttribute('alt') || '';
+        const title = img.getAttribute('title') ? ` title="${img.getAttribute('title')}"` : '';
+        const style = img.getAttribute('style') ? ` style="${img.getAttribute('style')}"` : '';
+        const width = img.getAttribute('width') ? ` width="${img.getAttribute('width')}"` : '';
+        const height = img.getAttribute('height') ? ` height="${img.getAttribute('height')}"` : '';
+        
+        return `<span class="image-wrapper block relative max-w-full my-4"><img src="${src}" alt="${alt}"${title}${style}${width}${height} class="rounded-lg max-w-full h-auto cursor-pointer border border-transparent hover:border-indigo-500 transition-colors" /></span>`;
+      }
+    } catch { /* ignore */ }
+  }
+  return html;
 };
 
 renderer.code = function(token) {
@@ -33,26 +59,38 @@ renderer.code = function(token) {
   if (lang && hljs.getLanguage(lang)) {
     try {
       highlighted = hljs.highlight(code, { language: lang }).value;
-    } catch (e) {}
+    } catch { /* ignore */ }
   } else {
     try {
       highlighted = hljs.highlightAuto(code).value;
-    } catch (e) {}
+    } catch { /* ignore */ }
   }
   
   const displayLang = lang ? lang.toUpperCase() : 'CODE';
 
   return `
-<div class="code-block-wrapper border border-slate-200 rounded-xl my-6 overflow-hidden not-prose shadow-sm" contenteditable="false">
-  <div class="bg-slate-50 px-4 py-2.5 flex justify-between items-center border-b border-slate-200">
-    <span class="text-xs font-bold text-slate-500 tracking-wider uppercase language-label">${displayLang}</span>
-    <button class="bg-white border border-slate-200 text-indigo-500 px-3 py-1 rounded-md text-xs font-medium shadow-sm hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all active:scale-95 copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.querySelector('code').textContent); this.textContent='Copied!'; setTimeout(() => this.textContent='Source', 2000);">Source</button>
+<div class="code-block-wrapper border border-slate-200 dark:border-slate-800/80 rounded-xl my-6 overflow-hidden not-prose shadow-sm" contenteditable="false">
+  <div class="bg-slate-100/50 dark:bg-slate-900/50 px-4 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-sm">
+    <div class="flex items-center gap-3">
+      <div class="flex gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+        <div class="w-2.5 h-2.5 rounded-full bg-red-400/80"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-green-400/80"></div>
+      </div>
+      <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tracking-widest uppercase language-label">${displayLang}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-2.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95 copy-btn" onclick="navigator.clipboard.writeText(this.closest('.code-block-wrapper').querySelector('code').textContent); this.textContent='COPIED!'; setTimeout(() => this.textContent='COPY', 2000);">COPY</button>
+      <button class="bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 transition-all active:scale-95" onclick="const wrapper = this.closest('.code-block-wrapper'); const next = wrapper.nextElementSibling; if(next && next.tagName === 'P' && next.innerHTML.includes('&#8203;')) next.remove(); wrapper.remove();" title="Delete code block">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      </button>
+    </div>
   </div>
-  <div class="flex bg-[#f8fafc] m-0 items-stretch">
-    <div class="line-numbers py-4 pl-4 pr-3 text-right text-slate-400 select-none font-mono text-[13px] leading-[1.6] min-w-[3rem] italic border-r border-slate-200/50">
+  <div class="flex bg-slate-50/50 dark:bg-[#0d1117] m-0 items-stretch">
+    <div class="line-numbers py-4 pl-4 pr-3 text-right text-slate-400 dark:text-slate-500/50 select-none font-mono text-[13px] leading-[1.6] min-w-[3rem] border-r border-slate-200/40 dark:border-slate-800/40">
       ${Array.from({ length: code.split('\n').length || 1 }, (_, i) => i + 1).join('<br/>')}
     </div>
-    <pre class="py-4 px-0 overflow-x-auto m-0 w-full"><code class="hljs language-${lang} bg-transparent px-4 py-0 text-[13px] leading-[1.6] font-mono text-slate-800 border-none outline-none block" contenteditable="true" oninput="this.parentElement.previousElementSibling.innerHTML = Array.from({ length: (this.innerText.match(/\\n/g) || []).length + 1 }, (_, i) => i + 1).join('<br/>')">${highlighted}</code></pre>
+    <pre class="py-4 px-0 overflow-x-auto m-0 w-full"><code class="hljs language-${lang} bg-transparent px-4 py-0 text-[13px] leading-[1.6] font-mono text-slate-800 dark:text-slate-200 border-none outline-none block" contenteditable="true" oninput="this.parentElement.previousElementSibling.innerHTML = Array.from({ length: (this.innerText.match(/\\n/g) || []).length + 1 }, (_, i) => i + 1).join('<br/>')">${highlighted}</code></pre>
   </div>
 </div>
 `;
@@ -95,8 +133,14 @@ export const EditorArea = ({
   const [isTableEditDialogOpen, setIsTableEditDialogOpen] = useState(false);
 
   const [hoveredImage, setHoveredImage] = useState<HTMLImageElement | null>(null);
-  const [imageRect, setImageRect] = useState<{ top: number, left: number, width: number } | null>(null);
+  const [imageRect, setImageRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
   const [isImageEditDialogOpen, setIsImageEditDialogOpen] = useState(false);
+  const [isResizingImage, setIsResizingImage] = useState(false);
+  
+  const [hoveredLink, setHoveredLink] = useState<HTMLAnchorElement | null>(null);
+  const [linkRect, setLinkRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
+  
+  const resizeStartData = useRef<{ startX: number, startY: number, startWidth: number, startHeight: number, startLeft: number, startTop: number, direction: string } | null>(null);
 
   // Sync previewRef with textareaRef if provided
   useEffect(() => {
@@ -127,7 +171,22 @@ export const EditorArea = ({
     setImageRect({
       top: imgRect.top - parentRect.top,
       left: imgRect.left - parentRect.left,
-      width: imgRect.width
+      width: imgRect.width,
+      height: imgRect.height
+    });
+  }, []);
+
+  const updateLinkRect = useCallback((link: HTMLAnchorElement) => {
+    if (!previewRef.current || !previewRef.current.parentElement) return;
+    
+    const lRect = link.getBoundingClientRect();
+    const parentRect = previewRef.current.parentElement.getBoundingClientRect();
+    
+    setLinkRect({
+      top: lRect.top - parentRect.top,
+      left: lRect.left - parentRect.left,
+      width: lRect.width,
+      height: lRect.height
     });
   }, []);
 
@@ -141,27 +200,35 @@ export const EditorArea = ({
       const target = e.target as HTMLElement;
       const table = target.closest('table');
       const img = target.closest('img');
-      const isHoveringToolbar = target.closest('.table-floating-toolbar') || target.closest('.image-floating-toolbar') || target.closest('[role="dialog"]');
+      const link = target.closest('a');
+      const isHoveringToolbar = target.closest('.table-floating-toolbar') || target.closest('.image-floating-toolbar') || target.closest('.link-floating-toolbar') || target.closest('[role="dialog"]');
       
       if (table && previewRef.current.contains(table)) {
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
         }
-        if (hoveredTable !== table) {
-          setHoveredTable(table);
-        }
+        if (hoveredTable !== table) setHoveredTable(table);
         updateTableRect(table);
         setHoveredImage(null);
+        setHoveredLink(null);
       } else if (img && previewRef.current.contains(img)) {
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
         }
-        if (hoveredImage !== img) {
-          setHoveredImage(img as HTMLImageElement);
-        }
+        if (hoveredImage !== img) setHoveredImage(img as HTMLImageElement);
         updateImageRect(img as HTMLImageElement);
+        setHoveredTable(null);
+        setHoveredLink(null);
+      } else if (link && previewRef.current.contains(link)) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        if (hoveredLink !== link) setHoveredLink(link as HTMLAnchorElement);
+        updateLinkRect(link as HTMLAnchorElement);
+        setHoveredImage(null);
         setHoveredTable(null);
       } else if (isHoveringToolbar) {
         if (timeoutRef.current) {
@@ -169,10 +236,11 @@ export const EditorArea = ({
           timeoutRef.current = null;
         }
       } else {
-        if (!timeoutRef.current && (hoveredTable || hoveredImage)) {
+        if (!timeoutRef.current && (hoveredTable || hoveredImage || hoveredLink)) {
           timeoutRef.current = setTimeout(() => {
             setHoveredTable(null);
             setHoveredImage(null);
+            setHoveredLink(null);
             timeoutRef.current = null;
           }, 150);
         }
@@ -184,7 +252,7 @@ export const EditorArea = ({
       window.removeEventListener('mousemove', handleMouseMove);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [hoveredTable, updateTableRect, isTableEditDialogOpen, hoveredImage, updateImageRect, isImageEditDialogOpen]);
+  }, [hoveredTable, updateTableRect, isTableEditDialogOpen, hoveredImage, updateImageRect, isImageEditDialogOpen, hoveredLink, updateLinkRect]);
 
   useEffect(() => {
     if (!hoveredTable) return;
@@ -297,19 +365,50 @@ export const EditorArea = ({
         const alt = (node as HTMLElement).getAttribute('alt') || '';
         const src = (node as HTMLElement).getAttribute('src') || '';
         const title = (node as HTMLElement).getAttribute('title') || '';
-        const width = (node as HTMLElement).getAttribute('width') || (node as HTMLElement).style.width;
-        const height = (node as HTMLElement).getAttribute('height') || (node as HTMLElement).style.height;
+        const styleRaw = (node as HTMLElement).getAttribute('style') || '';
+        const width = (node as HTMLElement).getAttribute('width');
+        const height = (node as HTMLElement).getAttribute('height');
         
-        if (width || height) {
-          let style = '';
-          if (width) style += `width: ${width}; `;
-          if (height) style += `height: ${height};`;
-          const titleAttr = title ? ` title="${title}"` : '';
-          return `<img src="${src}" alt="${alt}"${titleAttr} style="${style.trim()}" />`;
+        let style = styleRaw;
+        if (width && !style.includes('width')) style += `width: ${width}; `;
+        if (height && !style.includes('height')) style += `height: ${height};`;
+        
+        const titleAttr = title ? ` title="${title}"` : '';
+        
+        if (style.trim()) {
+          const styleAttr = ` style="${style.trim()}"`;
+          return `<img src="${src}" alt="${alt}"${titleAttr}${styleAttr} />`;
         }
         
-        const titlePart = title ? ' "' + title + '"' : '';
-        return src ? '![' + alt + ']' + '(' + src + titlePart + ')' : '';
+        return title ? `![${alt}](${src}${titleAttr})` : `![${alt}](${src})`;
+      }
+    });
+
+    service.addRule('math', {
+      filter: function (node) {
+        return node.nodeName === 'SPAN' && 
+               (node as HTMLElement).classList.contains('katex') && 
+               !(node.parentElement && node.parentElement.classList.contains('katex-display'));
+      },
+      replacement: function (content, node) {
+        const annotation = (node as HTMLElement).querySelector('annotation[encoding="application/x-tex"]');
+        if (annotation && annotation.textContent) {
+          return '$' + annotation.textContent + '$';
+        }
+        return content;
+      }
+    });
+
+    service.addRule('mathDisplay', {
+      filter: function (node) {
+        return node.nodeName === 'SPAN' && (node as HTMLElement).classList.contains('katex-display');
+      },
+      replacement: function (content, node) {
+        const annotation = (node as HTMLElement).querySelector('annotation[encoding="application/x-tex"]');
+        if (annotation && annotation.textContent) {
+          return '\n\n$$' + annotation.textContent + '$$\n\n';
+        }
+        return content;
       }
     });
 
@@ -341,9 +440,70 @@ export const EditorArea = ({
     }
   }, [hoveredTable, flushPreviewEdit]);
 
+  const handleImageResizeStart = useCallback((e: React.MouseEvent, direction: string = 'se') => {
+    if (!hoveredImage) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsResizingImage(true);
+    resizeStartData.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: hoveredImage.offsetWidth,
+      startHeight: hoveredImage.offsetHeight,
+      startLeft: hoveredImage.offsetLeft,
+      startTop: hoveredImage.offsetTop,
+      direction
+    };
+  }, [hoveredImage]);
+
+  useEffect(() => {
+    if (!isResizingImage || !hoveredImage || !resizeStartData.current) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      const { startX, startWidth, startHeight, direction } = resizeStartData.current!;
+      const dx = e.clientX - startX;
+      
+      const ratio = startWidth / startHeight;
+      let newWidth = startWidth;
+      
+      if (direction.includes('e')) {
+        newWidth = Math.max(50, startWidth + dx);
+      } else if (direction.includes('w')) {
+        newWidth = Math.max(50, startWidth - dx);
+      }
+
+      const newHeight = newWidth / ratio;
+
+      hoveredImage.style.width = `${newWidth}px`;
+      hoveredImage.style.height = `${newHeight}px`;
+      updateImageRect(hoveredImage);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingImage(false);
+      resizeStartData.current = null;
+      flushPreviewEdit();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingImage, hoveredImage, updateImageRect, flushPreviewEdit]);
+
   const deleteImage = useCallback(() => {
     if (hoveredImage && hoveredImage.parentNode) {
-      hoveredImage.remove();
+      const wrapper = hoveredImage.closest('.image-wrapper');
+      if (wrapper) {
+        wrapper.remove();
+      } else {
+        hoveredImage.remove();
+      }
       setHoveredImage(null);
       flushPreviewEdit();
     }
@@ -478,7 +638,22 @@ export const EditorArea = ({
     };
   }, []);
 
-  const handleCursorMove = useCallback(() => {
+  const handleCursorMove = useCallback((e?: React.MouseEvent | React.KeyboardEvent) => {
+    // If it's a mouse click, check if we clicked a link
+    if (e && e.type === 'click') {
+      const mouseEvent = e as React.MouseEvent<HTMLDivElement>;
+      const target = mouseEvent.target as HTMLElement;
+      const linkElement = target.closest('a');
+      
+      // If we clicked a link and not dragging/selecting text
+      if (linkElement && window.getSelection()?.isCollapsed) {
+        const href = linkElement.getAttribute('href');
+        if (href) {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
+      }
+    }
+
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     
@@ -533,162 +708,54 @@ export const EditorArea = ({
   }, [noteId]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if ((e.key === ' ' || e.key === 'Enter') && isAutoMarkdownEnabled) {
-      const selection = window.getSelection();
-      if (!selection || !selection.isCollapsed) return;
+    // We removed the auto-formatting on Space/Enter based on user request.
+    // The markdown rendering is now handled entirely by the Auto Markdown toggle button
+    // and the paste handler.
+  }, []);
 
-      const node = selection.anchorNode;
-      if (!node || node.nodeType !== Node.TEXT_NODE) return;
-
-      const text = node.textContent || '';
-      const offset = selection.anchorOffset;
-      const textBeforeCursor = text.slice(0, offset);
-
-      // Block formatting
-      const isAtStart = !node.previousSibling || (node.previousSibling.nodeType === Node.TEXT_NODE && node.previousSibling.textContent === '');
-      
-      if (isAtStart) {
-        const codeBlockMatch = textBeforeCursor.match(/^```([a-zA-Z]*)$/);
-        if (codeBlockMatch) {
-          e.preventDefault();
-          
-          const lang = codeBlockMatch[1] || '';
-          const displayLang = lang ? lang.toUpperCase() : 'CODE';
-          
-          const wrapper = document.createElement('div');
-          wrapper.className = "code-block-wrapper border border-slate-200 rounded-xl my-6 overflow-hidden not-prose shadow-sm";
-          wrapper.contentEditable = "false";
-          
-          wrapper.innerHTML = `
-            <div class="bg-slate-50 px-4 py-2.5 flex justify-between items-center border-b border-slate-200">
-              <span class="text-xs font-bold text-slate-500 tracking-wider uppercase language-label">${displayLang}</span>
-              <button class="bg-white border border-slate-200 text-indigo-500 px-3 py-1 rounded-md text-xs font-medium shadow-sm hover:bg-slate-50 transition-colors copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.querySelector('code').textContent); this.textContent='Copied!'; setTimeout(() => this.textContent='Source', 2000);">Source</button>
-            </div>
-            <div class="flex bg-[#f8fafc] m-0 items-stretch">
-              <div class="line-numbers py-4 pl-4 pr-3 text-right text-slate-400 select-none font-mono text-sm min-w-[3rem] italic">
-                1
-              </div>
-              <pre class="py-4 pr-4 pl-1 overflow-x-auto m-0 w-full"><code class="hljs language-${lang} bg-transparent p-0 text-sm font-mono text-slate-800 border-none outline-none block" contenteditable="true" oninput="this.parentElement.previousElementSibling.innerHTML = Array.from({ length: (this.innerText.match(/\\n/g) || []).length + 1 }, (_, i) => i + 1).join('<br/>')">\u200B</code></pre>
-            </div>
-          `;
-
-          const range = selection.getRangeAt(0);
-          range.setStart(node, offset - codeBlockMatch[0].length);
-          range.setEnd(node, offset);
-          range.deleteContents();
-
-          range.insertNode(wrapper);
-          
-          const codeNode = wrapper.querySelector('code');
-          if (codeNode) {
-            range.setStart(codeNode, 1);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
-          }
-          
-          flushPreviewEdit();
-          return;
-        }
-
-        // Only trigger other block formats on Space
-        if (e.key === ' ') {
-          let formatBlock = '';
-          if (textBeforeCursor === '#') formatBlock = 'H1';
-          else if (textBeforeCursor === '##') formatBlock = 'H2';
-          else if (textBeforeCursor === '###') formatBlock = 'H3';
-          else if (textBeforeCursor === '####') formatBlock = 'H4';
-          else if (textBeforeCursor === '#####') formatBlock = 'H5';
-          else if (textBeforeCursor === '######') formatBlock = 'H6';
-          else if (textBeforeCursor === '>') formatBlock = 'BLOCKQUOTE';
-
-          if (formatBlock) {
-            e.preventDefault();
-            node.textContent = text.slice(offset);
-            document.execCommand('formatBlock', false, formatBlock);
-            flushPreviewEdit();
-            return;
-          }
-
-          if (textBeforeCursor === '-' || textBeforeCursor === '*') {
-            e.preventDefault();
-            node.textContent = text.slice(offset);
-            document.execCommand('insertUnorderedList');
-            flushPreviewEdit();
-            return;
-          }
-
-          if (textBeforeCursor === '1.') {
-            e.preventDefault();
-            node.textContent = text.slice(offset);
-            document.execCommand('insertOrderedList');
-            flushPreviewEdit();
-            return;
-          }
-          
-          if (textBeforeCursor === '---') {
-            e.preventDefault();
-            node.textContent = text.slice(offset);
-            document.execCommand('insertHorizontalRule');
-            flushPreviewEdit();
-            return;
-          }
-        }
+  const prevAutoMarkdown = useRef(isAutoMarkdownEnabled);
+  
+  useEffect(() => {
+    if (isAutoMarkdownEnabled && !prevAutoMarkdown.current) {
+      if (previewRef.current) {
+        const currentHtml = previewRef.current.innerHTML;
+        let currentMarkdown = turndownService.turndown(currentHtml);
+        
+        // Unescape markdown characters that Turndown escaped, but skip code and math blocks
+        const parts = currentMarkdown.split(/(```[\s\S]*?```|\$\$[\s\S]*?\$\$|\$[^$]*?\$)/g);
+        let unescaped = parts.map((part, i) => {
+          if (i % 2 === 1) return part; // This is a code or math block, don't unescape backslashes here
+          return part.replace(/\\([\\`*{}\[\]()#+\-.!_>~|])/g, '$1');
+        }).join('');
+        
+        const html = parseMarkdown(unescaped);
+        previewRef.current.innerHTML = html;
+        flushPreviewEdit();
       }
+    }
+    prevAutoMarkdown.current = isAutoMarkdownEnabled;
+  }, [isAutoMarkdownEnabled, turndownService, flushPreviewEdit]);
 
-      // Inline formatting (only on Space)
-      if (e.key === ' ') {
-        const applyInlineFormat = (matchedText: string, innerText: string, tagName: string) => {
-          e.preventDefault();
-          const range = selection.getRangeAt(0);
-          range.setStart(node, offset - matchedText.length);
-          range.setEnd(node, offset);
-          range.deleteContents();
-
-          const formatNode = document.createElement(tagName);
-          formatNode.textContent = innerText;
-          range.insertNode(formatNode);
-
-          range.setStartAfter(formatNode);
-          range.setEndAfter(formatNode);
-          const spaceNode = document.createTextNode('\u00A0');
-          range.insertNode(spaceNode);
-          range.setStartAfter(spaceNode);
-          range.setEndAfter(spaceNode);
-          selection.removeAllRanges();
-          selection.addRange(range);
-          flushPreviewEdit();
-        };
-
-        const boldMatch = textBeforeCursor.match(/\*\*(.+?)\*\*$/);
-        if (boldMatch) {
-          applyInlineFormat(boldMatch[0], boldMatch[1], 'strong');
-          return;
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    if (isAutoMarkdownEnabled) {
+      const text = e.clipboardData.getData('text/plain');
+      if (text) {
+        e.preventDefault();
+        let html = parseMarkdown(text);
+        
+        // If it's a single line, remove the wrapping <p> tags to avoid breaking the current line
+        if (!text.includes('\n') && html.startsWith('<p>') && html.endsWith('</p>\n')) {
+          html = html.substring(3, html.length - 5);
         }
-
-        const italicMatch = textBeforeCursor.match(/(?<!\*)\*(.+?)\*$/) || textBeforeCursor.match(/_(.+?)_$/);
-        if (italicMatch) {
-          applyInlineFormat(italicMatch[0], italicMatch[1], 'em');
-          return;
-        }
-
-        const codeMatch = textBeforeCursor.match(/`(.+?)`$/);
-        if (codeMatch) {
-          applyInlineFormat(codeMatch[0], codeMatch[1], 'code');
-          return;
-        }
-
-        const strikeMatch = textBeforeCursor.match(/~~(.+?)~~$/);
-        if (strikeMatch) {
-          applyInlineFormat(strikeMatch[0], strikeMatch[1], 'del');
-          return;
-        }
+        
+        document.execCommand('insertHTML', false, html);
+        flushPreviewEdit();
       }
     }
   }, [isAutoMarkdownEnabled, flushPreviewEdit]);
 
   return (
-    <div className="relative w-full group/editor">
+    <div className="relative w-full max-w-full group/editor">
       <div 
         ref={previewRef}
         contentEditable={true}
@@ -704,7 +771,8 @@ export const EditorArea = ({
         onKeyDown={handleKeyDown}
         onKeyUp={handleCursorMove}
         onClick={handleCursorMove}
-        className="prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] text-lg prose-p:leading-[1.8] prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-strong:font-semibold prose-strong:text-foreground prose-li:marker:text-muted-foreground prose-hr:border-border prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:px-6 prose-blockquote:py-3 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:rounded-r-lg prose-code:text-foreground prose-code:bg-muted/60 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.9em] prose-code:font-medium prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:text-left prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px]"
+        onPaste={handlePaste}
+        className="prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] text-lg prose-p:leading-[1.8] prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-strong:font-semibold prose-strong:text-foreground prose-li:marker:text-muted-foreground prose-hr:border-border prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:px-6 prose-blockquote:py-3 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:rounded-r-lg prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-slate-800/80 prose-code:border prose-code:border-slate-200 dark:prose-code:border-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.85em] prose-code:font-medium prose-code:shadow-[0_1px_2px_rgba(0,0,0,0.05)] prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:text-left prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px]"
         role="textbox"
         aria-multiline="true"
         aria-label="Editor content"
@@ -759,10 +827,39 @@ export const EditorArea = ({
       {hoveredImage && imageRect && (
         <>
           <div 
+            className="absolute z-40 border-2 border-indigo-500 pointer-events-none"
+            style={{
+              top: imageRect.top,
+              left: imageRect.left,
+              width: imageRect.width,
+              height: imageRect.height,
+            }}
+          />
+          <div
+            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nwse-resize rounded-sm"
+            style={{ top: imageRect.top - 6, left: imageRect.left - 6 }}
+            onMouseDown={(e) => handleImageResizeStart(e, 'nw')}
+          />
+          <div
+            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nesw-resize rounded-sm"
+            style={{ top: imageRect.top - 6, left: imageRect.left + imageRect.width - 6 }}
+            onMouseDown={(e) => handleImageResizeStart(e, 'ne')}
+          />
+          <div
+            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nesw-resize rounded-sm"
+            style={{ top: imageRect.top + imageRect.height - 6, left: imageRect.left - 6 }}
+            onMouseDown={(e) => handleImageResizeStart(e, 'sw')}
+          />
+          <div
+            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nwse-resize rounded-sm"
+            style={{ top: imageRect.top + imageRect.height - 6, left: imageRect.left + imageRect.width - 6 }}
+            onMouseDown={(e) => handleImageResizeStart(e, 'se')}
+          />
+          <div 
             className="image-floating-toolbar absolute z-50 flex items-center justify-center"
             style={{ 
-              top: imageRect.top - 12, 
-              left: imageRect.left - 12,
+              top: imageRect.top - 36, 
+              left: imageRect.left,
             }}
           >
             <button 
@@ -776,8 +873,8 @@ export const EditorArea = ({
           <div 
             className="image-floating-toolbar absolute z-50 flex items-center justify-center gap-1"
             style={{ 
-              top: imageRect.top - 12, 
-              left: imageRect.left + imageRect.width - 28,
+              top: imageRect.top - 36, 
+              left: imageRect.left + 36,
             }}
           >
             <button 
@@ -790,6 +887,26 @@ export const EditorArea = ({
           </div>
         </>
       )}
+      
+      {hoveredLink && linkRect && (
+        <div 
+          className="link-floating-toolbar absolute z-50 flex items-center justify-center gap-1"
+          style={{ 
+            top: linkRect.top - 36, 
+            left: linkRect.left,
+          }}
+        >
+          <button 
+            onClick={(e) => { e.preventDefault(); window.open(hoveredLink.href, '_blank'); }}
+            className="px-2 py-1.5 bg-background border border-border text-xs font-medium text-muted-foreground hover:text-cyan-500 hover:border-cyan-200 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 rounded-md shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
+            title="Open Link in new tab"
+          >
+            <ExternalLink className="w-3 h-3" />
+            <span className="max-w-[200px] truncate">{hoveredLink.href}</span>
+          </button>
+        </div>
+      )}
+      
       <ImageEditDialog
         isOpen={isImageEditDialogOpen}
         onClose={() => setIsImageEditDialogOpen(false)}

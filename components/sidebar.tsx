@@ -134,8 +134,8 @@ export function Sidebar({
         isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0 md:w-0 md:border-none md:overflow-hidden"
       )}>
         <div className="p-5 border-b border-border flex items-center justify-between bg-sidebar">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-sm flex items-center justify-center">
+          <div className="flex items-baseline gap-2">
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-sm flex items-center justify-center self-center shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" className="w-full h-full">
                 <rect width="512" height="512" rx="128" fill="url(#paint0_linear)"/>
                 <path d="M160 140V372H352" stroke="white" strokeWidth="40" strokeLinecap="round" strokeLinejoin="round"/>
@@ -151,6 +151,7 @@ export function Sidebar({
               </svg>
             </div>
             <h1 className="font-semibold text-sidebar-foreground tracking-tight">Lumina</h1>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase ml-1">V {appVersion}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={onCreateNote} className="text-muted-foreground hover:text-foreground hover:bg-muted hidden md:flex" aria-label="Create new note">
@@ -376,14 +377,10 @@ export function Sidebar({
           <Tag className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
           <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Theme</span>
         </div>
-        <div className="grid grid-cols-3 gap-2" role="group" aria-label="Theme selection">
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Theme selection">
           {[
-            { id: 'light', label: 'Light', color: 'bg-white border-slate-200 text-amber-500', icon: Sun },
-            { id: 'dark', label: 'Dark', color: 'bg-slate-900 border-slate-800 text-slate-100', icon: Moon },
-            { id: 'fancy', label: 'Fancy', color: 'bg-indigo-50 border-indigo-200 text-indigo-500', icon: Sparkles },
-            { id: 'rainbow', label: 'Rainbow', color: 'bg-pink-50 border-pink-200 text-pink-500', icon: Palette },
-            { id: 'dracula', label: 'Dracula', color: 'bg-[#282a36] border-[#44475a] text-[#ff79c6]', icon: Moon },
-            { id: 'nord', label: 'Nord', color: 'bg-[#2e3440] border-[#3b4252] text-[#88c0d0]', icon: Moon }
+            { id: 'light', label: 'Light', color: 'bg-white border-slate-200 text-amber-500 hover:bg-slate-50', icon: Sun },
+            { id: 'dark', label: 'Dark', color: 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-slate-800', icon: Moon }
           ].map((t) => {
             const Icon = t.icon;
             return (
@@ -420,12 +417,7 @@ export function Sidebar({
         </div>
       )}
 
-      {/* App Version */}
-      <div className="p-4 border-t border-border text-center">
-        <span className="text-xs text-muted-foreground font-medium">
-          Version {appVersion}
-        </span>
-      </div>
+
     </div>
 
       <SmartFolderDialog 

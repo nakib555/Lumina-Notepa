@@ -308,3 +308,18 @@
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: oklch(0.4 0 0);
 }
+
+/* KaTeX Enhancements */
+.katex-display {
+  display: block;
+  text-align: center;
+  margin: 1.5rem 0 !important;
+  font-size: 1.25em !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0;
+}
+
+.katex {
+  font-size: 1.1em;
+}
