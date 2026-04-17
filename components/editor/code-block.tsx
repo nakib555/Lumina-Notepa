@@ -73,6 +73,7 @@ export const CodeBlock = ({ inline, className, children, theme, ...props }: Code
             language={language || 'text'}
             PreTag="div"
             showLineNumbers={true}
+            wrapLines={true}
             lineNumberStyle={{
               minWidth: '3em',
               paddingRight: '1em',

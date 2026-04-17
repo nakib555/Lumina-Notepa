@@ -50,29 +50,44 @@ export const useEditorHistory = (note: Note | null, onUpdateNote: (id: string, u
       const newHistory = currentHistory.slice(0, currentIndex + 1);
       newHistory.push({ title, content });
       
-      const finalHistory = newHistory.length > 100 ? newHistory.slice(newHistory.length - 100) : newHistory;
+      historyRef.current = newHistory;
+      historyIndexRef.current = newHistory.length - 1;
       
-      historyRef.current = finalHistory;
-      historyIndexRef.current = finalHistory.length - 1;
-      
-      setHistory(finalHistory);
-      setHistoryIndex(finalHistory.length - 1);
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
       setSaveStatus("saved");
     };
 
     if (immediate) {
       performAdd();
     } else {
-      debounceTimerRef.current = setTimeout(performAdd, 1000);
+      debounceTimerRef.current = setTimeout(performAdd, 10);
     }
   }, []);
 
   const handleUndo = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+      setSaveStatus("saved");
+    }
+
     const currentHistory = historyRef.current;
-    const currentIndex = historyIndexRef.current;
+    let currentIndex = historyIndexRef.current;
+    
+    // Save current unsaved changes to history so we can Redo them
+    if (note && currentHistory[currentIndex] && 
+        (currentHistory[currentIndex].content !== note.content || currentHistory[currentIndex].title !== note.title)) {
+      const newHistory = currentHistory.slice(0, currentIndex + 1);
+      newHistory.push({ title: note.title, content: note.content });
+      historyRef.current = newHistory;
+      setHistory(newHistory);
+      currentIndex = newHistory.length - 1;
+      historyIndexRef.current = currentIndex;
+    }
     
     if (currentIndex > 0 && note) {
-      const prevItem = currentHistory[currentIndex - 1];
+      const prevItem = historyRef.current[currentIndex - 1];
       onUpdateNote(note.id, { title: prevItem.title, content: prevItem.content });
       
       historyIndexRef.current = currentIndex - 1;
@@ -81,6 +96,12 @@ export const useEditorHistory = (note: Note | null, onUpdateNote: (id: string, u
   }, [note, onUpdateNote]);
 
   const handleRedo = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+      setSaveStatus("saved");
+    }
+
     const currentHistory = historyRef.current;
     const currentIndex = historyIndexRef.current;
     

@@ -87,17 +87,17 @@ renderer.code = function(token) {
     </div>
   </div>
   <div class="flex bg-slate-50/50 dark:bg-[#0d1117] m-0 items-stretch">
-    <div class="line-numbers py-4 pl-4 pr-3 text-right text-slate-400 dark:text-slate-500/50 select-none font-mono text-[13px] leading-[1.6] min-w-[3rem] border-r border-slate-200/40 dark:border-slate-800/40">
-      ${Array.from({ length: code.split('\n').length || 1 }, (_, i) => i + 1).join('<br/>')}
-    </div>
-    <pre class="py-4 px-0 overflow-x-auto m-0 w-full"><code class="hljs language-${lang} bg-transparent px-4 py-0 text-[13px] leading-[1.6] font-mono text-slate-800 dark:text-slate-200 border-none outline-none block" contenteditable="true" oninput="this.parentElement.previousElementSibling.innerHTML = Array.from({ length: (this.innerText.match(/\\n/g) || []).length + 1 }, (_, i) => i + 1).join('<br/>')">${highlighted}</code></pre>
+    <pre class="line-numbers py-4 pl-4 pr-3 text-right text-slate-400 dark:text-slate-500/50 select-none font-mono text-[13px] leading-[1.6] min-w-[3rem] border-r border-slate-200/40 dark:border-slate-800/40 m-0 overflow-hidden bg-transparent">
+      ${Array.from({ length: code.split('\\n').length || 1 }, (_, i) => i + 1).join('\\n')}
+    </pre>
+    <pre class="py-4 px-0 overflow-x-auto m-0 w-full bg-transparent"><code class="hljs language-${lang} bg-transparent px-4 py-0 text-[13px] leading-[1.6] font-mono text-slate-800 dark:text-slate-200 border-none outline-none block" contenteditable="true" oninput="this.parentElement.previousElementSibling.innerText = Array.from({ length: (this.innerText.match(/\\n/g) || []).length + 1 }, (_, i) => i + 1).join('\\n')">${highlighted}</code></pre>
   </div>
 </div>
 `;
 };
 
 const parseMarkdown = (text: string) => {
-  return marked.parse(text, { renderer }) as string;
+  return marked.parse(text, { renderer, breaks: true, gfm: true }) as string;
 };
 
 export interface EditorAreaRef {
@@ -114,6 +114,7 @@ interface EditorAreaProps {
   noteId?: string;
   textareaRef?: React.RefObject<HTMLDivElement | null>;
   isAutoMarkdownEnabled?: boolean;
+  isViewMode?: boolean;
 }
 
 export const EditorArea = ({
@@ -124,7 +125,8 @@ export const EditorArea = ({
   editorAreaRef,
   noteId,
   textareaRef,
-  isAutoMarkdownEnabled
+  isAutoMarkdownEnabled,
+  isViewMode
 }: EditorAreaProps) => {
   const previewRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
@@ -288,7 +290,19 @@ export const EditorArea = ({
       emDelimiter: '*',
     });
     
+    service.escape = (string) => string; // Do not escape anything to allow live markdown typing
+
     service.use(gfm as import('turndown').Plugin);
+
+    service.addRule('tableRows', {
+      filter: function (node) {
+        return (node.nodeName === 'P' || node.nodeName === 'DIV') && 
+               /^\s*\|(.*)\|\s*$/.test(node.textContent || '');
+      },
+      replacement: function (content) {
+        return content + '\n';
+      }
+    });
 
     service.addRule('customCodeBlock', {
       filter: function (node) {
@@ -301,6 +315,22 @@ export const EditorArea = ({
         const code = codeContainer ? codeContainer.textContent : '';
         const lang = language === 'code' ? '' : language;
         return `\n\n\`\`\`${lang}\n${code}\n\`\`\`\n\n`;
+      }
+    });
+
+    service.addRule('caretMarker', {
+      filter: function (node) {
+        return node.nodeType === 1 && node.nodeName === 'SPAN' && (node as HTMLElement).id === 'caret-marker';
+      },
+      replacement: function () {
+        return '<span id="caret-marker"></span>';
+      }
+    });
+
+    service.addRule('preserveBr', {
+      filter: 'br',
+      replacement: function () {
+        return '<br>';
       }
     });
 
@@ -412,7 +442,35 @@ export const EditorArea = ({
       }
     });
 
-    return service;
+    service.addRule('mathError', {
+      filter: function (node) {
+        return node.nodeName === 'SPAN' && (node as HTMLElement).classList.contains('katex-error');
+      },
+      replacement: function (_content, node) {
+        return (node as HTMLElement).textContent || '';
+      }
+    });
+
+    service.addRule('preserveCaret', {
+      filter: function (node) {
+        return node.nodeName === 'SPAN' && (node as HTMLElement).id === 'caret-marker';
+      },
+      replacement: function (_content, node) {
+        return (node as HTMLElement).outerHTML;
+      }
+    });
+
+    return {
+      turndown: (html: string) => {
+        let md = service.turndown(html);
+        let prev;
+        do {
+          prev = md;
+          md = md.replace(/(^[ \t]*\|[^\n]+\|[ \t]*)\n[ \t]*\n(?=[ \t]*\|[^\n]+\|[ \t]*$)/gm, '$1\n');
+        } while (prev !== md);
+        return md;
+      }
+    };
   }, []);
 
   const lastProcessedContent = useRef(content);
@@ -420,8 +478,7 @@ export const EditorArea = ({
   const flushPreviewEdit = useCallback(() => {
     if (previewRef.current) {
       const htmlContent = previewRef.current.innerHTML;
-      let markdown = turndownService.turndown(htmlContent);
-      markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
+      const markdown = turndownService.turndown(htmlContent);
       lastProcessedContent.current = markdown;
       handleContentChange(markdown);
     }
@@ -627,9 +684,66 @@ export const EditorArea = ({
     inputTimeoutRef.current = setTimeout(() => {
       setHoveredTable(null);
       setHoveredImage(null);
+
+      if (isAutoMarkdownEnabled && previewRef.current) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && previewRef.current.contains(sel.anchorNode)) {
+             const range = sel.getRangeAt(0);
+             const marker = document.createElement('span');
+             marker.id = "caret-marker";
+             range.insertNode(marker);
+             
+             const parseState = {
+                 scrollContainers: [] as Array<{ el: Element | Window, top: number, left: number }>
+             };
+             let curr: HTMLElement | null = previewRef.current.parentElement;
+             while (curr && curr !== document.body) {
+                 parseState.scrollContainers.push({ el: curr, top: curr.scrollTop, left: curr.scrollLeft });
+                 curr = curr.parentElement;
+             }
+             parseState.scrollContainers.push({ el: window, top: window.scrollY, left: window.scrollX });
+             
+             const htmlWithMarker = previewRef.current.innerHTML;
+             const mdWithMarker = turndownService.turndown(htmlWithMarker);
+             
+             const newHtml = parseMarkdown(mdWithMarker);
+             previewRef.current.innerHTML = newHtml;
+             
+             const newMarker = previewRef.current.querySelector('#caret-marker');
+             if (newMarker) {
+                 const newRange = document.createRange();
+                 if (newMarker.nextSibling) {
+                     newRange.setStartBefore(newMarker.nextSibling);
+                 } else {
+                     newRange.setStartBefore(newMarker);
+                 }
+                 newRange.collapse(true);
+                 sel.removeAllRanges();
+                 sel.addRange(newRange);
+                 newMarker.remove();
+             }
+             
+             // Restore true scroll targeting
+             parseState.scrollContainers.forEach(({ el, top, left }) => {
+                 if (el === window) {
+                     window.scrollTo(left, top);
+                 } else {
+                     (el as HTMLElement).scrollTop = top;
+                     (el as HTMLElement).scrollLeft = left;
+                 }
+             });
+             
+             const finalHtml = previewRef.current.innerHTML;
+             const finalMarkdown = turndownService.turndown(finalHtml);
+             lastProcessedContent.current = finalMarkdown;
+             handleContentChange(finalMarkdown);
+             return;
+        }
+      }
+
       flushPreviewEdit();
-    }, 500);
-  }, [flushPreviewEdit]);
+    }, 150);
+  }, [flushPreviewEdit, isAutoMarkdownEnabled, turndownService, handleContentChange]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -653,39 +767,6 @@ export const EditorArea = ({
         }
       }
     }
-
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    // Only center if the cursor is actually inside the editor
-    if (previewRef.current && !previewRef.current.contains(selection.anchorNode)) return;
-    
-    const range = selection.getRangeAt(0);
-    let rect = range.getBoundingClientRect();
-    
-    if (rect.width === 0 && rect.height === 0) {
-      const span = document.createElement('span');
-      span.textContent = '\u200b';
-      range.insertNode(span);
-      rect = span.getBoundingClientRect();
-      if (span.parentNode) {
-        span.parentNode.removeChild(span);
-      }
-    }
-    
-    if (rect.top === 0 && rect.bottom === 0) return;
-    
-    const scrollContainer = document.querySelector('.custom-scrollbar');
-    if (scrollContainer) {
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const cursorY = rect.top - containerRect.top;
-      const targetY = containerRect.height / 2;
-      
-      scrollContainer.scrollBy({
-        top: cursorY - targetY,
-        behavior: 'smooth'
-      });
-    }
   }, []);
 
   // Sync content when it changes externally (e.g. Undo/Redo)
@@ -694,6 +775,20 @@ export const EditorArea = ({
       const html = parseMarkdown(content || '');
       previewRef.current.innerHTML = html;
       lastProcessedContent.current = content;
+      
+      // Attempt to move caret to end to avoid a jarring reset to start
+      if (document.activeElement === previewRef.current) {
+        try {
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(previewRef.current);
+          range.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        } catch (e) {
+          console.error("Cursor restore error:", e);
+        }
+      }
     }
   }, [content]);
 
@@ -707,7 +802,7 @@ export const EditorArea = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = useCallback(() => {
     // We removed the auto-formatting on Space/Enter based on user request.
     // The markdown rendering is now handled entirely by the Auto Markdown toggle button
     // and the paste handler.
@@ -718,23 +813,13 @@ export const EditorArea = ({
   useEffect(() => {
     if (isAutoMarkdownEnabled && !prevAutoMarkdown.current) {
       if (previewRef.current) {
-        const currentHtml = previewRef.current.innerHTML;
-        let currentMarkdown = turndownService.turndown(currentHtml);
-        
-        // Unescape markdown characters that Turndown escaped, but skip code and math blocks
-        const parts = currentMarkdown.split(/(```[\s\S]*?```|\$\$[\s\S]*?\$\$|\$[^$]*?\$)/g);
-        let unescaped = parts.map((part, i) => {
-          if (i % 2 === 1) return part; // This is a code or math block, don't unescape backslashes here
-          return part.replace(/\\([\\`*{}\[\]()#+\-.!_>~|])/g, '$1');
-        }).join('');
-        
-        const html = parseMarkdown(unescaped);
+        const html = parseMarkdown(content || '');
         previewRef.current.innerHTML = html;
         flushPreviewEdit();
       }
     }
     prevAutoMarkdown.current = isAutoMarkdownEnabled;
-  }, [isAutoMarkdownEnabled, turndownService, flushPreviewEdit]);
+  }, [isAutoMarkdownEnabled, content, flushPreviewEdit]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
     if (isAutoMarkdownEnabled) {
@@ -758,7 +843,7 @@ export const EditorArea = ({
     <div className="relative w-full max-w-full group/editor">
       <div 
         ref={previewRef}
-        contentEditable={true}
+        contentEditable={!isViewMode}
         suppressContentEditableWarning={true}
         onInput={handleInput}
         onCompositionStart={() => isComposing.current = true}
@@ -777,7 +862,7 @@ export const EditorArea = ({
         aria-multiline="true"
         aria-label="Editor content"
       />
-      {hoveredTable && tableRect && (
+      {!isViewMode && hoveredTable && tableRect && (
         <>
           <div 
             className="table-floating-toolbar absolute z-50 flex items-center justify-center"
@@ -824,7 +909,7 @@ export const EditorArea = ({
         table={hoveredTable}
         onConfirm={handleTableEditConfirm}
       />
-      {hoveredImage && imageRect && (
+      {!isViewMode && hoveredImage && imageRect && (
         <>
           <div 
             className="absolute z-40 border-2 border-indigo-500 pointer-events-none"
@@ -888,7 +973,7 @@ export const EditorArea = ({
         </>
       )}
       
-      {hoveredLink && linkRect && (
+      {!isViewMode && hoveredLink && linkRect && (
         <div 
           className="link-floating-toolbar absolute z-50 flex items-center justify-center gap-1"
           style={{ 

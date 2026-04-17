@@ -127,23 +127,6 @@ export function AutoUpdater() {
 
   useEffect(() => {
     checkForUpdates();
-
-    let listener: PluginListenerHandle | null = null;
-    if (Capacitor.isNativePlatform()) {
-      CapacitorApp.addListener('appStateChange', (state) => {
-        if (state.isActive) {
-          checkForUpdates();
-        }
-      }).then(l => {
-        listener = l;
-      });
-    }
-
-    return () => {
-      if (listener) {
-        listener.remove();
-      }
-    };
   }, [checkForUpdates]);
 
   const downloadUpdate = async () => {

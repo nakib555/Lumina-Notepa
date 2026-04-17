@@ -1,7 +1,8 @@
 import { 
   Menu, Undo2, Redo2, 
   Download, FileCode, FileText, Printer, 
-  Copy, CheckCircle2, Bug
+  Copy, CheckCircle2, Bug,
+  Eye, Edit3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +23,8 @@ interface EditorHeaderProps {
   stats: { words: number; chars: number; readingTime: number };
   saveStatus: "saved" | "saving";
   downloadLogs: () => void;
+  isViewMode: boolean;
+  setIsViewMode: (viewMode: boolean) => void;
 }
 
 export const EditorHeader = ({
@@ -40,7 +43,9 @@ export const EditorHeader = ({
   handleCopyNote,
   stats,
   saveStatus,
-  downloadLogs
+  downloadLogs,
+  isViewMode,
+  setIsViewMode
 }: EditorHeaderProps) => {
   return (
     <header className="h-14 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background/80 backdrop-blur-md z-10">
@@ -55,31 +60,46 @@ export const EditorHeader = ({
           <Menu className="w-5 h-5" aria-hidden="true" />
         </Button>
         <div className="h-4 w-px bg-border mx-1 hidden sm:block shrink-0" aria-hidden="true" />
+        
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => setIsViewMode(!isViewMode)} 
+          className={`h-9 px-3 gap-2 shrink-0 ${isViewMode ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground hover:text-foreground"}`}
+          title={isViewMode ? "Switch to Edit Mode" : "Switch to View Mode"}
+        >
+          {isViewMode ? <Edit3 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          <span className="hidden sm:inline font-medium">{isViewMode ? "Edit Mode" : "View Mode"}</span>
+        </Button>
 
-        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={handleUndo} 
-            className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
-            title="Undo (Ctrl+Z)"
-            aria-label="Undo"
-          >
-            <Undo2 className="w-4 h-4" aria-hidden="true" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={handleRedo} 
-            className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
-            title="Redo (Ctrl+Y)"
-            aria-label="Redo"
-          >
-            <Redo2 className="w-4 h-4" aria-hidden="true" />
-          </Button>
-        </div>
+        {!isViewMode && (
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 ml-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleUndo} 
+              className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+              disabled={historyIndex <= 0}
+            >
+              <Undo2 className="w-4 h-4" aria-hidden="true" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleRedo} 
+              className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              title="Redo (Ctrl+Y)"
+              aria-label="Redo"
+              disabled={historyIndex >= historyLength - 1}
+            >
+              <Redo2 className="w-4 h-4" aria-hidden="true" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1 sm:gap-3 shrink-0">

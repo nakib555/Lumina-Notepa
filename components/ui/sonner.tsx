@@ -51,6 +51,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         classNames: {
           toast: "cn-toast",
         },
+        duration: 2000,
       }}
       position="top-center"
       {...props}

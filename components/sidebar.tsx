@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, FileText, X, Download, Tag, Search, Hash, Sun, Moon, Sparkles, Palette, Folder, Settings2 } from "lucide-react";
+import { Plus, Trash2, FileText, X, Download, Tag, Search, Hash, Sun, Moon, Folder, Settings2 } from "lucide-react";
 import { Note, SmartFolder } from "@/hooks/use-notes";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";

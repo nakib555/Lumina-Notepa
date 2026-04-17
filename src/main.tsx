@@ -10,6 +10,6 @@ createRoot(document.getElementById('root')!).render(
     <TooltipProvider>
       <App />
     </TooltipProvider>
-    <Toaster />
+    <Toaster duration={2000} />
   </StrictMode>,
 )

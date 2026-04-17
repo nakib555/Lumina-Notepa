@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Note } from '@/hooks/use-notes';
 import { toast } from 'sonner';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 export const useEditorExport = (note: Note | null) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
 
-  const exportNote = (format: 'txt' | 'md' | 'pdf') => {
+  const exportNote = async (format: 'txt' | 'md' | 'pdf') => {
     if (!note) return;
     setShowExportMenu(false);
     
@@ -19,17 +21,34 @@ export const useEditorExport = (note: Note | null) => {
       ? `# ${note.title}\n\n${note.content}`
       : `${note.title}\n\n${note.content}`;
       
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${note.title || 'Untitled'}.${format}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success(`Exported as ${format.toUpperCase()}`);
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const fileName = `${note.title || 'Untitled'}.${format}`;
+        await Filesystem.writeFile({
+          path: fileName,
+          data: content,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8
+        });
+        
+        toast.success(`Saved to Documents/${fileName}`);
+      } catch (err) {
+        console.error('Failed to save file:', err);
+        toast.error('Failed to export. Please check permissions.');
+      }
+    } else {
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${note.title || 'Untitled'}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Exported as ${format.toUpperCase()}`);
+    }
   };
 
   const handleCopyNote = (format: 'normal' | 'markdown') => {

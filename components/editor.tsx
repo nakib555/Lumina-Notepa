@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Note } from "@/hooks/use-notes";
 import { EditorHeader } from "./editor/editor-header";
 import { BottomBar } from "./editor/bottom-bar";
@@ -44,6 +44,7 @@ export function Editor({
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [initialLinkText, setInitialLinkText] = useState('');
   const [isAutoMarkdownEnabled, setIsAutoMarkdownEnabled] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   const savedRangeRef = useRef<Range | null>(null);
 
   const {
@@ -51,8 +52,8 @@ export function Editor({
     historyIndex,
     saveStatus,
     addToHistory,
-    handleUndo: originalHandleUndo,
-    handleRedo: originalHandleRedo
+    handleUndo,
+    handleRedo
   } = useEditorHistory(note, onUpdateNote);
 
   const {
@@ -72,26 +73,6 @@ export function Editor({
   } = useEditorLogic(note, onUpdateNote, addToHistory);
 
   const editorAreaRef = useRef<EditorAreaRef>(null);
-
-  const handleUndo = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-      document.execCommand('undo');
-    }
-    if (editorAreaRef.current) {
-      editorAreaRef.current.flushPreviewEdit();
-    }
-  }, []);
-
-  const handleRedo = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-      document.execCommand('redo');
-    }
-    if (editorAreaRef.current) {
-      editorAreaRef.current.flushPreviewEdit();
-    }
-  }, []);
 
   const {
     showExportMenu,
@@ -126,6 +107,7 @@ export function Editor({
   } = useDraggable(symbolScrollRef);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isViewMode) return;
     const newTitle = e.target.value;
     onUpdateNote(note!.id, { title: newTitle });
     addToHistory(newTitle, note!.content);
@@ -202,6 +184,7 @@ export function Editor({
     document.addEventListener("mousedown", handleClickOutside);
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isViewMode) return;
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         if (e.shiftKey) {
           e.preventDefault();
@@ -221,7 +204,7 @@ export function Editor({
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [handleUndo, handleRedo, setShowExportMenu, setShowCopyMenu]);
+  }, [handleUndo, handleRedo, setShowExportMenu, setShowCopyMenu, isViewMode]);
 
   if (!note) {
     return (
@@ -269,6 +252,8 @@ export function Editor({
         stats={stats}
         saveStatus={saveStatus}
         downloadLogs={downloadLogs}
+        isViewMode={isViewMode}
+        setIsViewMode={setIsViewMode}
       />
 
       {/* Editor Area */}
@@ -280,21 +265,24 @@ export function Editor({
               value={note.title}
               onChange={handleTitleChange}
               placeholder="Note Title"
-              className="w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight"
+              readOnly={isViewMode}
+              className={cn("w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight", isViewMode && "cursor-default")}
             />
             
             {/* Tag Management */}
-            <MetadataBar 
-              note={note}
-              tagInput={tagInput}
-              setTagInput={setTagInput}
-              onTagKeyDown={onTagKeyDown}
-              handleAddTag={handleAddTag}
-              removeTag={removeTag}
-              folderInput={folderInput}
-              setFolderInput={setFolderInput}
-              updateFolder={updateFolder}
-            />
+            {!isViewMode && (
+              <MetadataBar 
+                note={note}
+                tagInput={tagInput}
+                setTagInput={setTagInput}
+                onTagKeyDown={onTagKeyDown}
+                handleAddTag={handleAddTag}
+                removeTag={removeTag}
+                folderInput={folderInput}
+                setFolderInput={setFolderInput}
+                updateFolder={updateFolder}
+              />
+            )}
           </div>
           
           <EditorArea 
@@ -307,55 +295,58 @@ export function Editor({
             noteId={note.id}
             textareaRef={textareaRef}
             isAutoMarkdownEnabled={isAutoMarkdownEnabled}
+            isViewMode={isViewMode}
           />
         </div>
       </div>
 
       {/* Bottom Formatting Bar */}
-      <BottomBar 
-        symbolMenuRef={symbolMenuRef}
-        showSymbolMenu={showSymbolMenu}
-        setShowSymbolMenu={setShowSymbolMenu}
-        symbolScrollRef={symbolScrollRef}
-        handleSymbolMouseDown={handleSymbolMouseDown}
-        handleSymbolMouseLeave={handleSymbolMouseLeave}
-        handleSymbolMouseUp={handleSymbolMouseUp}
-        handleSymbolMouseMove={handleSymbolMouseMove}
-        isSymbolDragging={isSymbolDragging}
-        applyFormatting={applyFormatting}
-        toolbarRef={toolbarRef}
-        isDragging={isDragging}
-        handleMouseDown={handleMouseDown}
-        handleMouseLeave={handleMouseLeave}
-        handleMouseUp={handleMouseUp}
-        handleMouseMove={handleMouseMove}
-        fontFamily={fontFamily}
-        onFontFamilyChange={onFontFamilyChange}
-        applyFontSize={applyFontSize}
-        textareaRef={textareaRef}
-        isAutoMarkdownEnabled={isAutoMarkdownEnabled}
-        setIsAutoMarkdownEnabled={setIsAutoMarkdownEnabled}
-        onInsertImageClick={() => {
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            savedRangeRef.current = selection.getRangeAt(0).cloneRange();
-          } else {
-            savedRangeRef.current = null;
-          }
-          setShowImageDialog(true);
-        }}
-        onInsertLinkClick={() => {
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            savedRangeRef.current = selection.getRangeAt(0).cloneRange();
-            setInitialLinkText(selection.toString());
-          } else {
-            savedRangeRef.current = null;
-            setInitialLinkText('');
-          }
-          setShowLinkDialog(true);
-        }}
-      />
+      {!isViewMode && (
+        <BottomBar 
+          symbolMenuRef={symbolMenuRef}
+          showSymbolMenu={showSymbolMenu}
+          setShowSymbolMenu={setShowSymbolMenu}
+          symbolScrollRef={symbolScrollRef}
+          handleSymbolMouseDown={handleSymbolMouseDown}
+          handleSymbolMouseLeave={handleSymbolMouseLeave}
+          handleSymbolMouseUp={handleSymbolMouseUp}
+          handleSymbolMouseMove={handleSymbolMouseMove}
+          isSymbolDragging={isSymbolDragging}
+          applyFormatting={applyFormatting}
+          toolbarRef={toolbarRef}
+          isDragging={isDragging}
+          handleMouseDown={handleMouseDown}
+          handleMouseLeave={handleMouseLeave}
+          handleMouseUp={handleMouseUp}
+          handleMouseMove={handleMouseMove}
+          fontFamily={fontFamily}
+          onFontFamilyChange={onFontFamilyChange}
+          applyFontSize={applyFontSize}
+          textareaRef={textareaRef}
+          isAutoMarkdownEnabled={isAutoMarkdownEnabled}
+          setIsAutoMarkdownEnabled={setIsAutoMarkdownEnabled}
+          onInsertImageClick={() => {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+              savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+            } else {
+              savedRangeRef.current = null;
+            }
+            setShowImageDialog(true);
+          }}
+          onInsertLinkClick={() => {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+              savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+              setInitialLinkText(selection.toString());
+            } else {
+              savedRangeRef.current = null;
+              setInitialLinkText('');
+            }
+            setShowLinkDialog(true);
+          }}
+        />
+      )}
 
       <ImageInsertDialog 
         isOpen={showImageDialog}
