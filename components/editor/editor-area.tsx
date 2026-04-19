@@ -1038,6 +1038,47 @@ export const EditorArea = ({
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
 
+    if (e.key === 'Backspace') {
+      const sel = window.getSelection();
+      if (sel && sel.isCollapsed && sel.rangeCount > 0) {
+        const node = sel.anchorNode;
+        const offset = sel.anchorOffset;
+        
+        let targetToDelete: Node | null = null;
+        let textNodeToDelete: Node | null = null;
+        
+        if (node?.nodeType === Node.TEXT_NODE) {
+          if (offset === 0) {
+            targetToDelete = node.previousSibling;
+          } else if (offset === 1 && node.textContent?.charAt(0) === '\u200B') {
+            targetToDelete = node.previousSibling;
+            textNodeToDelete = node;
+          }
+        } else if (node?.nodeType === Node.ELEMENT_NODE) {
+          targetToDelete = node.childNodes[offset - 1];
+        }
+
+        if (targetToDelete && targetToDelete.nodeType === Node.ELEMENT_NODE) {
+          const elTarget = targetToDelete as HTMLElement;
+          if (
+            elTarget.classList.contains('bookmark-marker') || 
+            elTarget.classList.contains('image-wrapper') || 
+            elTarget.classList.contains('code-block-wrapper') ||
+            elTarget.classList.contains('table-wrapper')
+          ) {
+            e.preventDefault();
+            elTarget.remove();
+            if (textNodeToDelete && textNodeToDelete.textContent === '\u200B') {
+              (textNodeToDelete as ChildNode).remove();
+            } else if (textNodeToDelete) {
+              textNodeToDelete.textContent = textNodeToDelete.textContent?.substring(1) || '';
+            }
+            flushPreviewEdit();
+          }
+        }
+      }
+    }
+
     // Code block specific handling
     if (target.tagName === 'CODE') {
       if (e.key === 'Tab') {
@@ -1099,6 +1140,57 @@ export const EditorArea = ({
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [handleSelectionChange]);
+
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+
+    const handleBeforeInput = (e: InputEvent) => {
+      if (e.inputType === 'deleteContentBackward') {
+        const sel = window.getSelection();
+        if (sel && sel.isCollapsed && sel.rangeCount > 0) {
+          const node = sel.anchorNode;
+          const offset = sel.anchorOffset;
+          
+          let targetToDelete: Node | null = null;
+          let textNodeToDelete: Node | null = null;
+          
+          if (node?.nodeType === Node.TEXT_NODE) {
+            if (offset === 0) {
+              targetToDelete = node.previousSibling;
+            } else if (offset === 1 && node.textContent?.charAt(0) === '\u200B') {
+              targetToDelete = node.previousSibling;
+              textNodeToDelete = node;
+            }
+          } else if (node?.nodeType === Node.ELEMENT_NODE) {
+            targetToDelete = node.childNodes[offset - 1];
+          }
+
+          if (targetToDelete && targetToDelete.nodeType === Node.ELEMENT_NODE) {
+            const elTarget = targetToDelete as HTMLElement;
+            if (
+              elTarget.classList.contains('bookmark-marker') || 
+              elTarget.classList.contains('image-wrapper') || 
+              elTarget.classList.contains('code-block-wrapper') ||
+              elTarget.classList.contains('table-wrapper')
+            ) {
+              e.preventDefault();
+              elTarget.remove();
+              if (textNodeToDelete && textNodeToDelete.textContent === '\u200B') {
+                (textNodeToDelete as ChildNode).remove();
+              } else if (textNodeToDelete) {
+                textNodeToDelete.textContent = textNodeToDelete.textContent?.substring(1) || '';
+              }
+              flushPreviewEdit();
+            }
+          }
+        }
+      }
+    };
+
+    el.addEventListener('beforeinput', handleBeforeInput as EventListener);
+    return () => el.removeEventListener('beforeinput', handleBeforeInput as EventListener);
+  }, [flushPreviewEdit]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
     if (e.clipboardData.files && e.clipboardData.files.length > 0) {
