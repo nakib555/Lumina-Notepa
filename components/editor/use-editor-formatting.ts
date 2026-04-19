@@ -101,7 +101,8 @@ export const useEditorFormatting = (
     } else {
       document.execCommand('insertText', false, prefix);
     }
-  }, []);
+    textareaRef.current?.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [textareaRef]);
 
   const applyFontSize = useCallback((size: string) => {
     const selection = window.getSelection();
