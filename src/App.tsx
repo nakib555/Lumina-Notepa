@@ -14,7 +14,7 @@ const INTRO_SLIDES = [
   {
     icon: Feather,
     title: "Write with clarity",
-    desc: "A distraction-free markdown environment designed to help you focus on what matters most—your thoughts.",
+    desc: "A distraction-free markdown environment designed to help you focus on what matters most\\u2014your thoughts.",
     button: "Next"
   },
   {

@@ -363,7 +363,7 @@ export const EditorArea = ({
       },
       replacement: function (_content, node) {
         const id = (node as HTMLElement).getAttribute('data-bookmark-id') || '';
-        return `<span class="bookmark-marker" data-bookmark-id="${id}" style="display:inline-block; border-radius:4px; margin:0 2px; cursor:pointer;" title="Bookmark" contenteditable="false">��</span>`;
+        return `<span class="bookmark-marker" data-bookmark-id="${id}" style="display:inline-block; border-radius:4px; margin:0 2px; cursor:pointer;" title="Bookmark" contenteditable="false">&#128278;</span>`;
       }
     });
 

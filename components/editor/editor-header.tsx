@@ -243,7 +243,7 @@ export const EditorHeader = ({
         </div>
 
         <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block" aria-live="polite">
-          {stats.words} words • {stats.chars} chars • {stats.readingTime} min read
+          {stats.words} words {'\u2022'} {stats.chars} chars {'\u2022'} {stats.readingTime} min read
         </span>
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground" aria-live="polite">
           {saveStatus === "saving" ? (

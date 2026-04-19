@@ -260,7 +260,7 @@ export const FloatingToolbar = ({
   const handleAddBookmark = () => {
     ensureFocus();
     const id = `mark-${Date.now()}`;
-    document.execCommand('insertHTML', false, `<span class="bookmark-marker" data-bookmark-id="${id}" style="display:inline-block; border-radius:4px; margin:0 2px; cursor:pointer;" title="Bookmark" contenteditable="false">🔖</span>&#8203;`);
+    document.execCommand('insertHTML', false, `<span class="bookmark-marker" data-bookmark-id="${id}" style="display:inline-block; border-radius:4px; margin:0 2px; cursor:pointer;" title="Bookmark" contenteditable="false">&#128278;</span>&#8203;`);
     if (textareaRef.current) {
         textareaRef.current.dispatchEvent(new Event('input', { bubbles: true }));
     }
