@@ -133,7 +133,7 @@ export function SidebarFileTree({
 
   const handleDragStart = (e: React.DragEvent, id: string, type: 'note' | 'folder') => {
     e.stopPropagation();
-    // e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/json', JSON.stringify({ id, type }));
     // Required for mobile-drag-drop to recognize the item payload
     e.dataTransfer.setData('text/plain', JSON.stringify({ id, type })); 
@@ -153,8 +153,8 @@ export function SidebarFileTree({
       if (type === 'note') {
         position = (y / rect.height) < 0.5 ? 'before' : 'after';
       } else if (type === 'folder') {
-        if ((y / rect.height) < 0.15) position = 'before';
-        else if ((y / rect.height) > 0.85) position = 'after';
+        if ((y / rect.height) < 0.3) position = 'before';
+        else if ((y / rect.height) > 0.7) position = 'after';
         else position = 'inside';
       }
     }
@@ -171,6 +171,12 @@ export function SidebarFileTree({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Prevent flickering when hovering over text or icons inside the draggable row
+    if (e.currentTarget.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    
     setDragState(null);
   };
 
@@ -467,12 +473,12 @@ export function SidebarFileTree({
     if (isFolderInner) {
        // folder has an outer container for children drop ('inside'), and inner actual row for before/after/inside
        if (dragState.position === 'inside') return "bg-primary/20 ring-1 ring-primary/50";
-       if (dragState.position === 'before') return "shadow-[0_-2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
-       if (dragState.position === 'after') return "shadow-[0_2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+       if (dragState.position === 'before') return "shadow-[0_-3px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+       if (dragState.position === 'after') return "shadow-[0_3px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
     } else {
        if (dragState.position === 'inside') return "bg-primary/10 ring-1 ring-primary/30";
-       if (dragState.position === 'before') return "shadow-[0_-2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
-       if (dragState.position === 'after') return "shadow-[0_2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+       if (dragState.position === 'before') return "shadow-[0_-3px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+       if (dragState.position === 'after') return "shadow-[0_3px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
     }
     return "";
   };
@@ -487,7 +493,7 @@ export function SidebarFileTree({
       onDragLeave={handleDragLeave}
       onDrop={(e) => handleDrop(e, note.id, 'note')}
       className={cn(
-        "group flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer transition-all duration-200 border-none",
+        "group flex items-center justify-between py-2 px-2 rounded-lg cursor-pointer transition-all duration-200 border-none select-none",
         getDragStyle(note.id),
         activeNoteId === note.id 
           ? "bg-primary/10 text-primary font-medium" 
@@ -496,7 +502,7 @@ export function SidebarFileTree({
       style={{ paddingLeft: `${ level * 12 + 28 }px` }} // Aligns nicely past the Chevron and Folder icon
       onClick={() => onSelectNote(note.id)}
     >
-      <div className="flex items-center gap-2 overflow-hidden w-full">
+      <div className="flex items-center gap-2 overflow-hidden w-full pointer-events-none">
         <span className="text-muted-foreground shrink-0 w-3.5 h-3.5 flex items-center justify-center">
             <span className={cn("w-1.5 h-1.5 rounded-full", activeNoteId === note.id ? "bg-primary" : "bg-primary/40")} />
         </span>
@@ -541,13 +547,13 @@ export function SidebarFileTree({
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, folder.id, 'folder')}
           className={cn(
-            "group flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
+            "group flex items-center justify-between py-2 px-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors select-none",
             getDragStyle(folder.id, true)
           )}
           style={{ paddingLeft: `${ level * 12 + 8 }px` }}
           onClick={() => toggleFolder(folder.id)}
         >
-          <div className="flex items-center gap-2 overflow-hidden w-full">
+          <div className="flex items-center gap-2 overflow-hidden w-full pointer-events-none">
             <span className="text-muted-foreground shrink-0">
               {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </span>
@@ -667,7 +673,7 @@ export function SidebarFileTree({
       {/* Folders & Root Notes Container */}
       <div 
         className={cn(
-          "min-h-[100px] space-y-1 pb-4 rounded-xl transition-all",
+          "min-h-[50vh] space-y-1 pb-[30vh] rounded-xl transition-all h-full",
           dragState?.id === 'root' ? "bg-primary/5 ring-1 ring-primary/30" : ""
         )}
         onDragEnter={(e) => e.preventDefault()}

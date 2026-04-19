@@ -42,7 +42,16 @@ if ('serviceWorker' in navigator) {
   } else {
     // WEB PWA BEHAVIOR
     // Explicitly register the service worker since we disabled auto-inject
-    registerSW({ immediate: true });
+    const updateSW = registerSW({ 
+      immediate: true,
+      onNeedRefresh() {
+        // Automatically accept the new payload (skip waiting) without deleting user local DB data
+        updateSW(true);
+      },
+      onOfflineReady() {
+        console.log("App ready to work offline");
+      }
+    });
 
     // Wait for the service worker to be updated and control the page.
     let refreshing = false;

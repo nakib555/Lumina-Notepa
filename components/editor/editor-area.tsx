@@ -996,32 +996,9 @@ export const EditorArea = ({
     prevAutoMarkdown.current = isAutoMarkdownEnabled;
   }, [isAutoMarkdownEnabled, content, flushPreviewEdit]);
 
-  const [textSelectionRect, setTextSelectionRect] = useState<{top: number, left: number, width: number} | null>(null);
-
   const handleSelectionChange = useCallback(() => {
-    if (isViewMode) {
-      setTextSelectionRect(null);
-      return;
-    }
-    const selection = window.getSelection();
-    if (selection && !selection.isCollapsed && previewRef.current?.contains(selection.anchorNode)) {
-      if (document.activeElement !== previewRef.current) return;
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      const editorRect = previewRef.current.getBoundingClientRect();
-      if (hoveredImage || hoveredTable || isTableEditDialogOpen || isImageEditDialogOpen) {
-        setTextSelectionRect(null);
-        return;
-      }
-      setTextSelectionRect({
-        top: rect.top - editorRect.top + previewRef.current.scrollTop - 40,
-        left: rect.left - editorRect.left + previewRef.current.scrollLeft + (rect.width / 2),
-        width: rect.width
-      });
-    } else {
-      setTextSelectionRect(null);
-    }
-  }, [isViewMode, hoveredImage, hoveredTable, isTableEditDialogOpen, isImageEditDialogOpen]);
+    // Disabled text selection hover based on user request
+  }, []);
 
   useEffect(() => {
     document.addEventListener('selectionchange', handleSelectionChange);
@@ -1141,28 +1118,6 @@ export const EditorArea = ({
             </button>
           </div>
         </>
-      )}
-      {!isViewMode && textSelectionRect && !hoveredImage && !hoveredTable && (
-        <div 
-          className="text-floating-toolbar absolute z-50 flex items-center justify-center gap-0.5 p-1 bg-background border border-border rounded-lg shadow-md animate-in fade-in zoom-in-95 duration-100"
-          style={{ 
-            top: textSelectionRect.top, 
-            left: textSelectionRect.left,
-            transform: 'translateX(-50%)'
-          }}
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          <button onClick={() => execFormatting('bold')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Bold"><Bold className="w-4 h-4" /></button>
-          <button onClick={() => execFormatting('italic')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Italic"><Italic className="w-4 h-4" /></button>
-          <button onClick={() => execFormatting('strikeThrough')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Strikethrough"><Strikethrough className="w-4 h-4" /></button>
-          <div className="w-px h-4 bg-border/50 mx-1" />
-          <button onClick={() => execFormatting('formatBlock', 'H1')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Heading"><Heading1 className="w-4 h-4" /></button>
-          <button onClick={() => {
-            const url = window.prompt("Enter link URL:");
-            if (url) execFormatting('createLink', url);
-          }} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Link"><LinkIcon className="w-4 h-4" /></button>
-          <button onClick={() => execFormatting('formatBlock', 'PRE')} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Code Block"><Code className="w-4 h-4" /></button>
-        </div>
       )}
 
       <TableEditDialog 
