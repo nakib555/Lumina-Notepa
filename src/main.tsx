@@ -8,6 +8,19 @@ import { Toaster } from "@/components/ui/sonner"
 import { Capacitor } from '@capacitor/core';
 import { registerSW } from 'virtual:pwa-register';
 
+// Polyfill for HTML5 Drag and Drop on Touch Devices (Mobile/Capacitor)
+import { polyfill } from "mobile-drag-drop";
+import "mobile-drag-drop/default.css";
+
+// Initialize polyfill immediately
+polyfill({
+  dragImageTranslateOverride: "scrollBehavior", // Ensures drag image follows native scroll
+});
+
+// To ensure scroll still works alongside dragging, we disable passive touchmove 
+// globally if needed, though mobile-drag-drop usually handles most of it.
+window.addEventListener('touchmove', function() {}, {passive: false});
+
 if ('serviceWorker' in navigator) {
   if (Capacitor.isNativePlatform?.()) {
     // NATIVE APP BEHAVIOR

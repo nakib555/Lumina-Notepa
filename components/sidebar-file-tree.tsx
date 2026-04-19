@@ -133,8 +133,10 @@ export function SidebarFileTree({
 
   const handleDragStart = (e: React.DragEvent, id: string, type: 'note' | 'folder') => {
     e.stopPropagation();
-    e.dataTransfer.effectAllowed = 'move';
+    // e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/json', JSON.stringify({ id, type }));
+    // Required for mobile-drag-drop to recognize the item payload
+    e.dataTransfer.setData('text/plain', JSON.stringify({ id, type })); 
   };
 
   const handleDragOver = (e: React.DragEvent, id: string | 'root', type: 'note' | 'folder' | 'root') => {
@@ -159,6 +161,10 @@ export function SidebarFileTree({
 
     if (dragState?.id !== id || dragState?.position !== position) {
       setDragState({ id, type, position });
+      // If we hover over a folder in 'inside' position, expand it after a short delay
+      if (type === 'folder' && position === 'inside' && id !== 'root') {
+          setTimeout(() => expandFolder(id as string), 600);
+      }
     }
   };
 
@@ -231,25 +237,40 @@ export function SidebarFileTree({
     // 2. Check for internal react drag-and-drop
     try {
       const payload = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+      console.log("DROP PAYLOAD:", payload);
       if (!payload) return;
       const data = JSON.parse(payload);
       
+      console.log("DRAG DROP TARGET INFO", {
+        dataId: data.id,
+        dropTargetId,
+        pos,
+        targetFolderId,
+        referenceId,
+      });
+
       if (data.id === dropTargetId) return;
 
       const passPosition = pos === 'inside' ? 'after' : pos;
       if (data.type === 'note') {
+        console.log("MOVING NOTE");
         onMoveNote(data.id, targetFolderId, referenceId, passPosition);
       } else if (data.type === 'folder' && referenceId !== data.id) {
+        console.log("MOVING FOLDER", data.id, targetFolderId);
         if (!isDescendant(data.id, targetFolderId)) {
           if (onMoveFolder) {
+            console.log("onMoveFolder CALLED");
             onMoveFolder(data.id, targetFolderId, referenceId, passPosition);
           } else {
+            console.log("onUpdateFolder CALLED FALLBACK");
             onUpdateFolder(data.id, { parentId: targetFolderId });
           }
+        } else {
+            console.log("IS DESCENDANT SO CANCELLED");
         }
       }
     } catch (err) {
-      // Ignore
+      console.error("Drop parsing error", err);
     }
   };
 

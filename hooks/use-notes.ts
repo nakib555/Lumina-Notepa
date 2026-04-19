@@ -109,6 +109,7 @@ export function useNotes() {
   };
 
   const reorderNote = (id: string, folderId: string | null, referenceNoteId?: string | null, position: 'before' | 'after' | 'inside' = 'after') => {
+    console.log("EXEC REORDER_NOTE", { id, folderId, referenceNoteId, position });
     setNotes(prev => {
       const sourceIndex = prev.findIndex(n => n.id === id);
       if (sourceIndex === -1) return prev;
@@ -162,6 +163,7 @@ export function useNotes() {
   };
 
   const reorderFolder = (id: string, parentId: string | null, referenceFolderId?: string | null, position: 'before' | 'after' | 'inside' = 'after') => {
+    console.log("EXEC REORDER_FOLDER", { id, parentId, referenceFolderId, position });
     setFolders(prev => {
       const sourceIndex = prev.findIndex(f => f.id === id);
       if (sourceIndex === -1) return prev;
