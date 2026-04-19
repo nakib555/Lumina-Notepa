@@ -108,7 +108,7 @@ export function useNotes() {
     ));
   };
 
-  const reorderNote = (id: string, folderId: string | null, referenceNoteId?: string | null) => {
+  const reorderNote = (id: string, folderId: string | null, referenceNoteId?: string | null, position: 'before' | 'after' | 'inside' = 'after') => {
     setNotes(prev => {
       const sourceIndex = prev.findIndex(n => n.id === id);
       if (sourceIndex === -1) return prev;
@@ -119,9 +119,12 @@ export function useNotes() {
       newNotes.splice(sourceIndex, 1);
 
       if (referenceNoteId) {
-        const targetIndex = newNotes.findIndex(n => n.id === referenceNoteId);
+        let targetIndex = newNotes.findIndex(n => n.id === referenceNoteId);
         if (targetIndex !== -1) {
-          newNotes.splice(targetIndex + 1, 0, updatedNote);
+          if (position === 'after') {
+            targetIndex += 1;
+          }
+          newNotes.splice(targetIndex, 0, updatedNote);
           return newNotes;
         }
       }
@@ -158,25 +161,30 @@ export function useNotes() {
     ));
   };
 
-  const reorderFolder = (id: string, parentId: string | null, referenceFolderId?: string | null) => {
+  const reorderFolder = (id: string, parentId: string | null, referenceFolderId?: string | null, position: 'before' | 'after' | 'inside' = 'after') => {
     setFolders(prev => {
       const sourceIndex = prev.findIndex(f => f.id === id);
       if (sourceIndex === -1) return prev;
       const sourceFolder = prev[sourceIndex];
-      const updatedFolder = { ...sourceFolder, parentId };
+      const updatedFolder = { ...sourceFolder, parentId: parentId === undefined ? null : parentId };
 
       const newFolders = [...prev];
       newFolders.splice(sourceIndex, 1);
 
-      if (referenceFolderId) {
-        const targetIndex = newFolders.findIndex(f => f.id === referenceFolderId);
+      if (referenceFolderId && position !== 'inside') {
+        let targetIndex = newFolders.findIndex(f => f.id === referenceFolderId);
         if (targetIndex !== -1) {
-          newFolders.splice(targetIndex + 1, 0, updatedFolder);
+          if (position === 'after') {
+            targetIndex += 1;
+          }
+          newFolders.splice(targetIndex, 0, updatedFolder);
           return newFolders;
         }
       }
 
-      newFolders.unshift(updatedFolder);
+      if (position === 'inside' || !referenceFolderId) {
+         newFolders.unshift(updatedFolder);
+      }
       return newFolders;
     });
   };

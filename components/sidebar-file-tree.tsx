@@ -30,8 +30,8 @@ interface FileTreeProps {
   onCreateFolder: (name: string, parentId?: string | null) => string | void;
   onUpdateFolder: (id: string, updates: Partial<CommonFolder>) => void;
   onDeleteFolder: (id: string) => void;
-  onMoveNote: (noteId: string, folderId: string | null, referenceId?: string) => void;
-  onMoveFolder?: (folderId: string, parentId: string | null, referenceId?: string) => void;
+  onMoveNote: (noteId: string, folderId: string | null, referenceId?: string, position?: 'before' | 'after' | 'inside') => void;
+  onMoveFolder?: (folderId: string, parentId: string | null, referenceId?: string, position?: 'before' | 'after' | 'inside') => void;
   searchQuery: string;
   selectedTags: string[];
 }
@@ -47,11 +47,13 @@ export function SidebarFileTree({
   onUpdateFolder,
   onDeleteFolder,
   onMoveNote,
+  onMoveFolder,
   searchQuery,
   selectedTags
 }: FileTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
-  const [dragTarget, setDragTarget] = useState<string | 'root' | null>(null);
+  type DragPosition = 'before' | 'after' | 'inside';
+  const [dragState, setDragState] = useState<{ id: string | 'root', type: 'note' | 'folder' | 'root', position: DragPosition } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
@@ -135,17 +137,35 @@ export function SidebarFileTree({
     e.dataTransfer.setData('application/json', JSON.stringify({ id, type }));
   };
 
-  const handleDragOver = (e: React.DragEvent, targetId: string | 'root') => {
+  const handleDragOver = (e: React.DragEvent, id: string | 'root', type: 'note' | 'folder' | 'root') => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    if (dragTarget !== targetId) setDragTarget(targetId);
+
+    let position: DragPosition = 'inside';
+    
+    if (type !== 'root') {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      
+      if (type === 'note') {
+        position = (y / rect.height) < 0.5 ? 'before' : 'after';
+      } else if (type === 'folder') {
+        if ((y / rect.height) < 0.25) position = 'before';
+        else if ((y / rect.height) > 0.75) position = 'after';
+        else position = 'inside';
+      }
+    }
+
+    if (dragState?.id !== id || dragState?.position !== position) {
+      setDragState({ id, type, position });
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setDragTarget(null);
+    setDragState(null);
   };
 
   const isDescendant = (folderId: string, potentialParentId: string | null): boolean => {
@@ -155,10 +175,31 @@ export function SidebarFileTree({
     return parent ? isDescendant(folderId, parent.parentId) : false;
   };
 
-  const handleDrop = async (e: React.DragEvent, targetFolderId: string | null, referenceId?: string) => {
+  const handleDrop = async (e: React.DragEvent, dropTargetId: string | 'root', dropTargetType: 'note' | 'folder' | 'root') => {
     e.preventDefault();
     e.stopPropagation();
-    setDragTarget(null); // Clear drag target styling
+    
+    const pos = dragState?.position || 'inside';
+    setDragState(null);
+
+    let targetFolderId: string | null = null;
+    let referenceId: string | undefined = undefined;
+
+    if (dropTargetType === 'root') {
+      targetFolderId = null;
+    } else if (dropTargetType === 'note') {
+      const targetNote = notes.find(n => n.id === dropTargetId);
+      targetFolderId = targetNote?.folderId || null;
+      referenceId = dropTargetId !== 'root' ? dropTargetId : undefined;
+    } else if (dropTargetType === 'folder') {
+      if (pos === 'inside') {
+        targetFolderId = dropTargetId !== 'root' ? dropTargetId : null;
+      } else {
+        const targetFolder = folders.find(f => f.id === dropTargetId);
+        targetFolderId = targetFolder?.parentId || null;
+        referenceId = dropTargetId !== 'root' ? dropTargetId : undefined;
+      }
+    }
 
     // 1. Check for OS file drops
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -192,12 +233,16 @@ export function SidebarFileTree({
       const payload = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
       if (!payload) return;
       const data = JSON.parse(payload);
+      
+      if (data.id === dropTargetId) return;
+
+      const passPosition = pos === 'inside' ? 'after' : pos;
       if (data.type === 'note') {
-        onMoveNote(data.id, targetFolderId, referenceId);
-      } else if (data.type === 'folder' && targetFolderId !== data.id && referenceId !== data.id) {
+        onMoveNote(data.id, targetFolderId, referenceId, passPosition);
+      } else if (data.type === 'folder' && referenceId !== data.id) {
         if (!isDescendant(data.id, targetFolderId)) {
           if (onMoveFolder) {
-            onMoveFolder(data.id, targetFolderId, referenceId);
+            onMoveFolder(data.id, targetFolderId, referenceId, passPosition);
           } else {
             onUpdateFolder(data.id, { parentId: targetFolderId });
           }
@@ -396,17 +441,32 @@ export function SidebarFileTree({
     if (zipInputRef.current) zipInputRef.current.value = "";
   };
 
+  const getDragStyle = (id: string, isFolderInner = false) => {
+    if (dragState?.id !== id) return "";
+    if (isFolderInner) {
+       // folder has an outer container for children drop ('inside'), and inner actual row for before/after/inside
+       if (dragState.position === 'inside') return "bg-primary/20 ring-1 ring-primary/50";
+       if (dragState.position === 'before') return "shadow-[0_-2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+       if (dragState.position === 'after') return "shadow-[0_2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+    } else {
+       if (dragState.position === 'inside') return "bg-primary/10 ring-1 ring-primary/30";
+       if (dragState.position === 'before') return "shadow-[0_-2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+       if (dragState.position === 'after') return "shadow-[0_2px_0_0_hsl(var(--primary))] ring-0 bg-primary/5 z-10 relative left-0 right-0";
+    }
+    return "";
+  };
+
   const renderNote = (note: Note, level = 0) => (
     <div
       key={note.id}
       draggable="true"
       onDragStart={(e) => handleDragStart(e, note.id, 'note')}
-      onDragOver={(e) => handleDragOver(e, note.id)}
+      onDragOver={(e) => handleDragOver(e, note.id, 'note')}
       onDragLeave={handleDragLeave}
-      onDrop={(e) => handleDrop(e, note.folderId || null, note.id)}
+      onDrop={(e) => handleDrop(e, note.id, 'note')}
       className={cn(
         "group flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer transition-all duration-200 border-none",
-        dragTarget === note.id ? "bg-primary/20 ring-1 ring-primary/50" : "",
+        getDragStyle(note.id),
         activeNoteId === note.id 
           ? "bg-primary/10 text-primary font-medium" 
           : "hover:bg-muted/50 text-muted-foreground"
@@ -448,23 +508,21 @@ export function SidebarFileTree({
       <div 
         key={folder.id} 
         className={cn(
-          "w-full flex-col rounded-lg transition-colors",
-          dragTarget === folder.id ? "bg-primary/10 ring-1 ring-primary/30" : ""
+          "w-full flex-col rounded-lg transition-colors border border-transparent"
         )}
-        onDragOver={(e) => handleDragOver(e, folder.id)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, folder.id)}
       >
         <div
           draggable="true"
           onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
+          onDragOver={(e) => handleDragOver(e, folder.id, 'folder')}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, folder.id, 'folder')}
           className={cn(
-            "group flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+            "group flex items-center justify-between py-1.5 px-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
+            getDragStyle(folder.id, true)
           )}
           style={{ paddingLeft: `${ level * 12 + 8 }px` }}
           onClick={() => toggleFolder(folder.id)}
-          onDragOver={(e) => handleDragOver(e, folder.id)}
-          onDrop={(e) => handleDrop(e, folder.id)}
         >
           <div className="flex items-center gap-2 overflow-hidden w-full">
             <span className="text-muted-foreground shrink-0">
@@ -528,10 +586,13 @@ export function SidebarFileTree({
 
         {isExpanded && (
           <div
-            className="w-full flex-col"
-            onDragOver={(e) => handleDragOver(e, folder.id)}
+            className={cn(
+               "w-full flex-col",
+               dragState?.id === folder.id && dragState?.position === 'inside' ? "bg-primary/5 ring-1 ring-primary/20 rounded-md py-1" : ""
+            )}
+            onDragOver={(e) => handleDragOver(e, folder.id, 'folder')}
             onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, folder.id)}
+            onDrop={(e) => handleDrop(e, folder.id, 'folder')}
           >
             {childrenFolders.map(childFolder => renderFolder(childFolder, level + 1))}
             {childrenNotes.map(childNote => renderNote(childNote, level + 1))}
@@ -583,11 +644,11 @@ export function SidebarFileTree({
       <div 
         className={cn(
           "min-h-[100px] space-y-1 pb-4 rounded-xl transition-all",
-          dragTarget === 'root' ? "bg-primary/5 ring-1 ring-primary/30" : ""
+          dragState?.id === 'root' ? "bg-primary/5 ring-1 ring-primary/30" : ""
         )}
-        onDragOver={(e) => handleDragOver(e, 'root')}
+        onDragOver={(e) => handleDragOver(e, 'root', 'root')}
         onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, null)}
+        onDrop={(e) => handleDrop(e, 'root', 'root')}
       >
         <div className="flex items-center justify-between px-2 mb-2 mt-4">
           <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">File Tree</span>

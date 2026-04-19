@@ -20,8 +20,8 @@ interface SidebarProps {
   onCreateFolder: (name: string, parentId?: string | null) => string | void;
   onUpdateFolder: (id: string, updates: Partial<CommonFolder>) => void;
   onDeleteFolder: (id: string) => void;
-  onMoveNote: (noteId: string, folderId: string | null, referenceId?: string) => void;
-  onMoveFolder?: (folderId: string, parentId: string | null, referenceId?: string) => void;
+  onMoveNote: (noteId: string, folderId: string | null, referenceId?: string, position?: 'before' | 'after' | 'inside') => void;
+  onMoveFolder?: (folderId: string, parentId: string | null, referenceId?: string, position?: 'before' | 'after' | 'inside') => void;
   isOpen: boolean;
   onClose: () => void;
   theme: string;

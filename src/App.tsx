@@ -54,6 +54,8 @@ export default function App() {
     createFolder,
     updateFolder,
     deleteFolder,
+    reorderNote,
+    reorderFolder,
     isLoaded
   } = useNotes();
 
@@ -286,8 +288,8 @@ export default function App() {
             onCreateFolder={createFolder}
             onUpdateFolder={updateFolder}
             onDeleteFolder={deleteFolder}
-            onMoveNote={(noteId, folderId, referenceId) => reorderNote(noteId, folderId, referenceId)}
-            onMoveFolder={(folderId, parentId, referenceId) => reorderFolder(folderId, parentId, referenceId)}
+            onMoveNote={(noteId, folderId, referenceId, position) => reorderNote(noteId, folderId, referenceId, position)}
+            onMoveFolder={(folderId, parentId, referenceId, position) => reorderFolder(folderId, parentId, referenceId, position)}
             isOpen={isSidebarOpen}
             onClose={() => setIsSidebarOpen(false)}
             theme={theme}
