@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNotes } from "@/hooks/use-notes";
 import { Sidebar } from "@/components/sidebar";
 import { Editor } from "@/components/editor";
@@ -114,7 +114,7 @@ export default function App() {
         } else {
           setIntroStep(1);
         }
-      }, 2000); // 2 seconds of aesthetic intro
+      }, 1200); // Quicker aesthetic intro
       return () => clearTimeout(timer);
     }
   }, [isLoaded, introStep]);
@@ -142,12 +142,12 @@ export default function App() {
     };
   }, []);
 
-  const handleSelectNote = (id: string) => {
+  const handleSelectNote = useCallback((id: string) => {
     setActiveNoteId(id);
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
-  };
+  }, [setActiveNoteId]);
 
   // Handle opening files from Android Action VIEW/EDIT intents
   useEffect(() => {
@@ -169,6 +169,16 @@ export default function App() {
 
     const processIncomingFile = async (fileDetail: { base64Name: string, base64Content: string }) => {
         if (!fileDetail || !fileDetail.base64Content) return;
+
+        // Use a unique ID marker so we only process it once per file payload
+        // This is extremely important because createNote/createFolder triggers state updates and 
+        // re-runs this useEffect. Without it, ZIP or multi-file open triggers an infinite loop!
+        const processMarker = `processed-${fileDetail.base64Name}-${fileDetail.base64Content.length}`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((window as any)[processMarker]) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any)[processMarker] = true;
+
         const fileName = decodeBase64UTF8(fileDetail.base64Name);
         
         const isZip = fileName.toLowerCase().endsWith('.zip') || fileDetail.base64Content.startsWith('UEsD');
@@ -240,13 +250,6 @@ export default function App() {
         const title = fileName.replace(/\.(md|txt)$/i, '');
         const content = decodeBase64UTF8(fileDetail.base64Content);
         
-        // Use a unique ID marker so we only process it once per file payload
-        const processMarker = `processed-${fileDetail.base64Name}-${fileDetail.base64Content.length}`;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((window as any)[processMarker]) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any)[processMarker] = true;
-
         // Check if a note with this title already exists to avoid duplicates
         const existingNote = notes.find(n => n.title === title);
         if (existingNote) {
@@ -283,9 +286,13 @@ export default function App() {
     if (introStep < INTRO_SLIDES.length) {
       setIntroStep(introStep + 1);
     } else {
-      localStorage.setItem('lumina-onboarding-v2', 'true');
-      setShowIntro(false);
+      skipIntro();
     }
+  };
+
+  const skipIntro = () => {
+    localStorage.setItem('lumina-onboarding-v2', 'true');
+    setShowIntro(false);
   };
 
   return (
@@ -301,6 +308,17 @@ export default function App() {
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background"
       >
+        {showIntro && introStep > 0 && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={skipIntro}
+            className="absolute top-8 right-8 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors z-[100]"
+          >
+            Skip
+          </motion.button>
+        )}
+
         <AnimatePresence mode="wait">
           {showIntro && introStep === 0 && (
             <motion.div

@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { Note, Folder as CommonFolder } from '@/hooks/use-notes';
-import { ChevronRight, ChevronDown, Folder, Trash2, Download, Plus, Upload, MoreHorizontal, FileText, FileUp, Edit2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, Trash2, Download, Plus, Upload, MoreHorizontal, FileText, FileUp, Edit2, Lock, Unlock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -67,6 +67,7 @@ export function SidebarFileTree({
   const [isRenameFolderDialogOpen, setIsRenameFolderDialogOpen] = useState(false);
   const [folderToRename, setFolderToRename] = useState<{id: string, name: string} | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
+  const [isDndLocked, setIsDndLocked] = useState(true);
 
   const handleCreateFolderSubmit = () => {
     if (newFolderName.trim()) {
@@ -488,25 +489,26 @@ export function SidebarFileTree({
   const renderNote = (note: Note, level = 0) => (
     <div
       key={note.id}
-      draggable="true"
-      onDragStart={(e) => handleDragStart(e, note.id, 'note')}
-      onDragEnter={(e) => e.preventDefault()}
-      onDragOver={(e) => handleDragOver(e, note.id, 'note')}
-      onDragLeave={handleDragLeave}
-      onDrop={(e) => handleDrop(e, note.id, 'note')}
+      draggable={!isDndLocked}
+      onDragStart={(e) => !isDndLocked && handleDragStart(e, note.id, 'note')}
+      onDragEnter={(e) => !isDndLocked && e.preventDefault()}
+      onDragOver={(e) => !isDndLocked && handleDragOver(e, note.id, 'note')}
+      onDragLeave={!isDndLocked ? handleDragLeave : undefined}
+      onDrop={(e) => !isDndLocked && handleDrop(e, note.id, 'note')}
       className={cn(
-        "group flex items-center justify-between py-2 px-2 rounded-lg cursor-pointer transition-all duration-200 border-none select-none",
+        "group flex items-center justify-between py-1.5 px-2 rounded-lg transition-all duration-200 border-none select-none mx-1 my-0.5",
+        isDndLocked ? "cursor-pointer" : "cursor-grab active:cursor-grabbing hover:scale-[0.99]",
         getDragStyle(note.id),
         activeNoteId === note.id 
           ? "bg-primary/10 text-primary font-medium" 
-          : "hover:bg-muted/50 text-muted-foreground"
+          : "hover:bg-muted/80 text-muted-foreground"
       )}
       style={{ paddingLeft: `${ level * 12 + 28 }px` }} // Aligns nicely past the Chevron and Folder icon
       onClick={() => onSelectNote(note.id)}
     >
       <div className="flex items-center gap-2 overflow-hidden w-full pointer-events-none">
-        <span className="text-muted-foreground shrink-0 w-3.5 h-3.5 flex items-center justify-center">
-            <span className={cn("w-1.5 h-1.5 rounded-full", activeNoteId === note.id ? "bg-primary" : "bg-primary/40")} />
+        <span className="text-muted-foreground shrink-0 w-3.5 h-3.5 flex items-center justify-center transition-transform group-hover:scale-110">
+            <span className={cn("rounded-full transition-all duration-300", activeNoteId === note.id ? "w-2 h-2 bg-primary shadow-[0_0_8px_hsl(var(--primary))]" : "w-1.5 h-1.5 bg-primary/30 group-hover:bg-primary/50")} />
         </span>
         <span className={cn(
           "text-sm truncate mr-2 w-full transition-colors",
@@ -542,25 +544,26 @@ export function SidebarFileTree({
         )}
       >
         <div
-          draggable="true"
-          onDragStart={(e) => handleDragStart(e, folder.id, 'folder')}
-          onDragEnter={(e) => e.preventDefault()}
-          onDragOver={(e) => handleDragOver(e, folder.id, 'folder')}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, folder.id, 'folder')}
+          draggable={!isDndLocked}
+          onDragStart={(e) => !isDndLocked && handleDragStart(e, folder.id, 'folder')}
+          onDragEnter={(e) => !isDndLocked && e.preventDefault()}
+          onDragOver={(e) => !isDndLocked && handleDragOver(e, folder.id, 'folder')}
+          onDragLeave={!isDndLocked ? handleDragLeave : undefined}
+          onDrop={(e) => !isDndLocked && handleDrop(e, folder.id, 'folder')}
           className={cn(
-            "group flex items-center justify-between py-2 px-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors select-none",
-            getDragStyle(folder.id, true)
+             "group flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-muted/80 transition-all duration-200 select-none mx-1",
+             isDndLocked ? "cursor-pointer" : "cursor-grab active:cursor-grabbing hover:scale-[0.99]",
+             getDragStyle(folder.id, true)
           )}
           style={{ paddingLeft: `${ level * 12 + 8 }px` }}
           onClick={() => toggleFolder(folder.id)}
         >
           <div className="flex items-center gap-2 overflow-hidden w-full pointer-events-none">
-            <span className="text-muted-foreground shrink-0">
+            <span className="text-muted-foreground/70 shrink-0 transition-transform group-hover:text-foreground">
               {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </span>
-            <Folder className="w-4 h-4 text-primary/70 shrink-0" />
-            <span className="text-sm font-medium text-foreground/90 truncate mr-2 w-full">
+            <Folder className="w-4 h-4 text-primary/80 shrink-0" />
+            <span className="text-sm font-medium text-foreground/90 truncate mr-2 w-full group-hover:text-foreground transition-colors">
               {folder.name}
             </span>
           </div>
@@ -621,20 +624,21 @@ export function SidebarFileTree({
                "w-full flex-col min-h-2",
                dragState?.id === folder.id && dragState?.position === 'inside' ? "bg-primary/5 ring-1 ring-primary/20 rounded-md py-1" : ""
             )}
-            onDragEnter={(e) => e.preventDefault()}
-            onDragOver={(e) => handleDragOver(e, folder.id, 'folder-container')}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, folder.id, 'folder-container')}
+            onDragEnter={(e) => !isDndLocked && e.preventDefault()}
+            onDragOver={(e) => !isDndLocked && handleDragOver(e, folder.id, 'folder-container')}
+            onDragLeave={!isDndLocked ? handleDragLeave : undefined}
+            onDrop={(e) => !isDndLocked && handleDrop(e, folder.id, 'folder-container')}
           >
             {childrenFolders.map(childFolder => renderFolder(childFolder, level + 1))}
             {childrenNotes.map(childNote => renderNote(childNote, level + 1))}
             
             {childrenFolders.length === 0 && childrenNotes.length === 0 && (
               <div
-                style={{ paddingLeft: `${(level) * 12 + 28}px` }}
-                className="py-1.5 px-2 text-xs text-muted-foreground/50 italic pointer-events-none"
+                style={{ paddingLeft: `${(level) * 12 + 32}px` }}
+                className="py-1.5 px-2 text-[11px] font-medium text-muted-foreground/40 pointer-events-none flex items-center gap-2"
               >
-                Empty
+                <div className="w-1 h-1 rounded-full bg-border" />
+                Empty folder
               </div>
             )}
           </div>
@@ -678,17 +682,30 @@ export function SidebarFileTree({
           "min-h-[50vh] space-y-1 pb-[30vh] rounded-xl transition-all h-full",
           dragState?.id === 'root' ? "bg-primary/5 ring-1 ring-primary/30" : ""
         )}
-        onDragEnter={(e) => e.preventDefault()}
-        onDragOver={(e) => handleDragOver(e, 'root', 'root')}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, 'root', 'root')}
+        onDragEnter={(e) => !isDndLocked && e.preventDefault()}
+        onDragOver={(e) => !isDndLocked && handleDragOver(e, 'root', 'root')}
+        onDragLeave={!isDndLocked ? handleDragLeave : undefined}
+        onDrop={(e) => !isDndLocked && handleDrop(e, 'root', 'root')}
       >
-        <div className="flex items-center justify-between px-2 mb-2 mt-4">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">File Tree</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-5 w-5 text-muted-foreground hover:text-foreground focus-visible:ring-0 focus-visible:ring-offset-0")}>
-              <Plus className="w-3.5 h-3.5" />
-            </DropdownMenuTrigger>
+        <div className="sticky top-0 z-20 flex items-center justify-between px-3 py-1.5 mb-2 -mt-2 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 -mx-2 rounded-t-md border-b border-border/30">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-3 rounded-full bg-gradient-to-b from-primary/80 to-primary/30" aria-hidden="true" />
+            <span className="text-[11px] font-bold text-foreground/70 uppercase tracking-widest">Explorer</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              title={isDndLocked ? "Unlock Drag & Drop" : "Lock Drag & Drop"}
+              onClick={() => setIsDndLocked(!isDndLocked)}
+              className={cn("h-6 w-6 rounded-md transition-colors", isDndLocked ? "text-primary hover:bg-primary/10 hover:text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
+            >
+              {isDndLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-6 w-6 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors")}>
+                <Plus className="w-3.5 h-3.5" />
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => {
                 onCreateNote(undefined, undefined, undefined);
@@ -732,6 +749,7 @@ export function SidebarFileTree({
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
 
         {rootFolders.map(f => renderFolder(f, 0))}

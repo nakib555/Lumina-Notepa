@@ -48,25 +48,25 @@ export function CommandPalette({ notes, onSelectNote, onCreateNote, onThemeChang
                 <Command.Item 
                   key={note.id} 
                   onSelect={() => { onSelectNote(note.id); setOpen(false); }}
-                  className="flex items-center gap-2 px-2 py-2 text-sm text-foreground rounded-md cursor-pointer hover:bg-muted aria-selected:bg-muted transition-colors"
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground rounded-lg cursor-pointer hover:bg-muted aria-selected:bg-muted transition-all duration-200 active:scale-98"
                 >
-                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <FileText className="w-4 h-4 text-muted-foreground/70" />
                   {note.title || "Untitled Note"}
                 </Command.Item>
               ))}
             </Command.Group>
 
-            <Command.Group heading="Actions" className="text-xs font-medium text-muted-foreground px-2 py-1.5 mt-2">
+            <Command.Group heading="Actions" className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-widest px-2 py-2 mt-2">
               <Command.Item 
                 onSelect={() => { onCreateNote(); setOpen(false); }}
-                className="flex items-center gap-2 px-2 py-2 text-sm text-foreground rounded-md cursor-pointer hover:bg-muted aria-selected:bg-muted transition-colors"
+                className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground rounded-lg cursor-pointer hover:bg-muted aria-selected:bg-muted transition-all duration-200 active:scale-98"
               >
-                <Plus className="w-4 h-4 text-muted-foreground" />
+                <Plus className="w-4 h-4 text-muted-foreground/70" />
                 Create New Note
               </Command.Item>
             </Command.Group>
 
-            <Command.Group heading="Themes" className="text-xs font-medium text-muted-foreground px-2 py-1.5 mt-2">
+            <Command.Group heading="Themes" className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-widest px-2 py-2 mt-2">
               {[
                 { id: 'light', label: 'Light Theme', icon: Sun },
                 { id: 'dark', label: 'Dark Theme', icon: Moon },
@@ -80,9 +80,9 @@ export function CommandPalette({ notes, onSelectNote, onCreateNote, onThemeChang
                   <Command.Item 
                     key={t.id}
                     onSelect={() => { onThemeChange(t.id); setOpen(false); }}
-                    className="flex items-center gap-2 px-2 py-2 text-sm text-foreground rounded-md cursor-pointer hover:bg-muted aria-selected:bg-muted transition-colors"
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground rounded-lg cursor-pointer hover:bg-muted aria-selected:bg-muted transition-all duration-200 active:scale-98"
                   >
-                    <Icon className="w-4 h-4 text-muted-foreground" />
+                    <Icon className="w-4 h-4 text-muted-foreground/70" />
                     Switch to {t.label}
                   </Command.Item>
                 );

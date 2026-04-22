@@ -1,12 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  resolve: {
+    tsconfigPaths: true
+  },
   plugins: [
-    react(), 
-    tsconfigPaths(),
+    react({
+      babel: {
+        plugins: [
+          ["babel-plugin-react-compiler"]
+        ]
+      }
+    }), 
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
@@ -38,8 +45,33 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 3000000
+        maximumFileSizeToCacheInBytes: 5000000,
+        clientsClaim: true,
+        skipWaiting: true
       }
     })
   ],
+  build: {
+    target: 'esnext',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor';
+            }
+            if (id.includes('marked') || id.includes('turndown') || id.includes('react-syntax-highlighter')) {
+              return 'markdown';
+            }
+            if (id.includes('lucide-react')) {
+              return 'ui';
+            }
+            return 'modules';
+          }
+        }
+      }
+    }
+  }
 })

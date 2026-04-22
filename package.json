@@ -1,6 +1,6 @@
 {
   "name": "ai-studio-applet",
-  "version": "1.5.9",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -23,7 +23,6 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
     "@types/file-saver": "^2.0.7",
-    "@types/react-syntax-highlighter": "^15.5.13",
     "@types/turndown": "^5.0.6",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.21",
@@ -72,8 +71,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@types/textarea-caret": "^3.0.4",
     "@vitejs/plugin-react": "^6.0.1",
+    "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.0.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",

@@ -2,9 +2,9 @@ import React, { useRef, useCallback, useEffect, useState } from 'react';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { marked } from 'marked';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/atom-one-light.css';
-import { Sparkles, Trash2, Settings2, ExternalLink } from "lucide-react";
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { Trash2, Settings2, ExternalLink } from "lucide-react";
 import { TableEditDialog } from './table-edit-dialog';
 import { ImageEditDialog } from './image-edit-dialog';
 import markedKatex from 'marked-katex-extension';
@@ -32,95 +32,88 @@ const findAndRemoveMarker = (node: Node): { foundNode: Text, offset: number } | 
 marked.use(markedKatex({ throwOnError: false, nonStandard: true }));
 
 const renderer = new marked.Renderer();
-const originalTable = renderer.table;
-renderer.table = function(token) {
-  const html = originalTable.call(this, token);
-  // Add w-full and m-0 to the table itself
-  const styledHtml = html.replace('<table>', '<table class="w-full m-0">');
-  return `<div class="overflow-x-auto max-w-full w-full table-wrapper my-8">\n${styledHtml}</div>\n`;
-};
 
-renderer.tablecell = function (token) {
-  const html = marked.Renderer.prototype.tablecell.call(this, token);
-  // Convert align="xxx" to inline style so Tailwind's prose doesn't override it
-  if (token.align) {
-    return html.replace(/^<(t[hd])/, `<$1 style="text-align: ${token.align};"`);
-  }
-  return html;
-};
-
-renderer.image = function(token) {
-  const src = token.href;
-  const alt = token.text;
-  const title = token.title ? ` title="${token.title}"` : '';
-  
-  return `<span class="image-wrapper block relative max-w-full my-4"><img src="${src}" alt="${alt}"${title} class="rounded-lg max-w-full h-auto cursor-pointer border border-transparent hover:border-indigo-500 transition-colors" /></span>`;
-};
-
-renderer.html = function(token) {
-  const html = token.text;
-  if (html.trim().startsWith('<img')) {
-    try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const img = doc.querySelector('img');
-      if (img) {
-        const src = img.getAttribute('src') || '';
-        const alt = img.getAttribute('alt') || '';
-        const title = img.getAttribute('title') ? ` title="${img.getAttribute('title')}"` : '';
-        const style = img.getAttribute('style') ? ` style="${img.getAttribute('style')}"` : '';
-        const width = img.getAttribute('width') ? ` width="${img.getAttribute('width')}"` : '';
-        const height = img.getAttribute('height') ? ` height="${img.getAttribute('height')}"` : '';
-        
-        return `<span class="image-wrapper block relative max-w-full my-4"><img src="${src}" alt="${alt}"${title}${style}${width}${height} class="rounded-lg max-w-full h-auto cursor-pointer border border-transparent hover:border-indigo-500 transition-colors" /></span>`;
-      }
-    } catch { /* ignore */ }
-  }
-  return html;
+const CUSTOM_STYLE = {
+  margin: 0,
+  padding: '1.5rem',
+  fontSize: '13px',
+  lineHeight: '1.5',
+  fontFamily: "'Fira Code', monospace",
+  background: 'transparent',
 };
 
 renderer.code = function(token) {
   const code = token.text;
-  const lang = (token.lang || '').match(/\S*/)?.[0] || '';
+  const rawLang = (token.lang || '').match(/\S*/)?.[0]?.toLowerCase() || 'text';
   
-  let highlighted = code;
-  if (lang && hljs.getLanguage(lang)) {
-    try {
-      highlighted = hljs.highlight(code, { language: lang }).value;
-    } catch { /* ignore */ }
+  const langAliases: Record<string, string> = { text: 'text', plaintext: 'text', txt: 'text', raw: 'text' };
+  const lang = langAliases[rawLang] || rawLang;
+  
+  const displayLang = (lang === 'text' || !lang) ? 'Text' : lang.charAt(0).toUpperCase() + lang.slice(1);
+
+  let highlightedContent = '';
+  if (lang === 'text') {
+    const escapeHtml = (unsafe: string) => {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+    
+    // Fallback style converted to inline CSS for the pre tag
+    const inlineStyle = "margin:0;padding:1.5rem;font-size:13px;line-height:1.5;font-family:'Fira Code', monospace;background:transparent;";
+    
+    highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none]" contenteditable="true">${escapeHtml(code)}</code></pre>`;
   } else {
     try {
-      highlighted = hljs.highlightAuto(code).value;
-    } catch { /* ignore */ }
+      highlightedContent = renderToStaticMarkup(
+        <SyntaxHighlighter
+          language={lang}
+          useInlineStyles={true}
+          customStyle={CUSTOM_STYLE}
+          PreTag="div"
+          codeTagProps={{
+            className: "code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none]"
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
+      );
+      // Inject contenteditable into the code tag after generation
+      highlightedContent = highlightedContent.replace('<code', '<code contenteditable="true"');
+    } catch {
+      const inlineStyle = "margin:0;padding:1.5rem;font-size:13px;line-height:1.5;font-family:'Fira Code', monospace;background:transparent;";
+      const escapeHtml = (unsafe: string) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none]" contenteditable="true">${escapeHtml(code)}</code></pre>`;
+    }
   }
-  
-  const displayLang = lang ? lang.toUpperCase() : 'CODE';
 
   return `
-<div class="code-block-wrapper border border-slate-200 dark:border-slate-800/80 rounded-xl my-6 overflow-hidden not-prose shadow-sm" contenteditable="false">
-  <div class="bg-slate-100/50 dark:bg-slate-900/50 px-4 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-sm">
-    <div class="flex items-center gap-3">
-      <div class="flex gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
-        <div class="w-2.5 h-2.5 rounded-full bg-red-400/80"></div>
-        <div class="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
-        <div class="w-2.5 h-2.5 rounded-full bg-green-400/80"></div>
-      </div>
-      <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tracking-widest uppercase language-label">${displayLang}</span>
+<div class="code-block-wrapper border border-[#e5e7eb] dark:border-[#374151] rounded-md my-6 overflow-hidden not-prose shadow-sm" contenteditable="false">
+  <div class="bg-[#f8f9fa] dark:bg-[#1f2937] border-b border-[#e5e7eb] dark:border-[#374151] px-4 py-2 flex justify-between items-center text-[13px]">
+    <div class="font-semibold text-[#6366f1] dark:text-[#818cf8] language-label flex items-center">
+      ${displayLang}
     </div>
-    <div class="flex items-center gap-2">
-      <button class="bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-2.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95 copy-btn" onclick="navigator.clipboard.writeText(this.closest('.code-block-wrapper').querySelector('code').textContent); this.textContent='COPIED!'; setTimeout(() => this.textContent='COPY', 2000);">COPY</button>
-      <button class="bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 transition-all active:scale-95" onclick="const wrapper = this.closest('.code-block-wrapper'); const next = wrapper.nextElementSibling; if(next && next.tagName === 'P' && next.innerHTML.includes('&#8203;')) next.remove(); wrapper.remove();" title="Delete code block">
+    <div class="flex items-center gap-4">
+      <button class="flex items-center gap-1 text-[#6366f1] dark:text-[#818cf8] hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer">
+        <span class="text-xs">»</span> Open
+      </button>
+      <button class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity bg-transparent border-none cursor-pointer copy-btn" onclick="navigator.clipboard.writeText(this.closest('.code-block-wrapper').querySelector('.code-element').textContent); const span = this.querySelector('.copy-text'); span.textContent='Copied'; setTimeout(() => span.textContent='Copy', 2000);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <span class="copy-text">Copy</span>
+      </button>
+      <button class="flex items-center gap-1.5 text-slate-400 hover:text-red-500 transition-opacity bg-transparent border-none cursor-pointer delete-btn" onclick="const wrapper = this.closest('.code-block-wrapper'); const next = wrapper.nextElementSibling; if(next && next.tagName === 'P' && next.innerHTML.includes('&#8203;')) next.remove(); wrapper.remove();" title="Delete code block">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
       </button>
     </div>
   </div>
-  <div class="flex bg-slate-50/50 dark:bg-[#0d1117] m-0 items-stretch">
-    <pre class="line-numbers py-4 pl-4 pr-3 text-right text-slate-400 dark:text-slate-500/50 select-none font-mono text-[13px] leading-[1.6] min-w-[3rem] border-r border-slate-200/40 dark:border-slate-800/40 m-0 overflow-hidden bg-transparent">
-      ${Array.from({ length: code.split('\\n').length || 1 }, (_, i) => i + 1).join('\\n')}
-    </pre>
-    <pre class="py-4 px-0 overflow-x-auto m-0 w-full bg-transparent"><code class="hljs language-${lang} bg-transparent px-4 py-0 text-[13px] leading-[1.6] font-mono text-slate-800 dark:text-slate-200 border-none outline-none block" contenteditable="true" oninput="this.parentElement.previousElementSibling.innerText = Array.from({ length: (this.innerText.match(/\\n/g) || []).length + 1 }, (_, i) => i + 1).join('\\n')">${highlighted}</code></pre>
+  <div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto w-full code-container m-0 text-slate-800 dark:text-slate-200">
+    ${highlightedContent}
   </div>
 </div>
+<p>&#8203;</p>
 `;
 };
 
@@ -161,8 +154,10 @@ export const EditorArea = ({
   const previewRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
   const [hoveredTable, setHoveredTable] = useState<HTMLTableElement | null>(null);
-  const [tableRect, setTableRect] = useState<{ top: number, left: number, width: number } | null>(null);
+  const [, setTableRect] = useState<{ top: number, left: number, width: number } | null>(null);
   const [isTableEditDialogOpen, setIsTableEditDialogOpen] = useState(false);
+  const [activeTableRow, setActiveTableRow] = useState<HTMLTableRowElement | null>(null);
+  const [activeTableRowRect, setActiveTableRowRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
 
   const [hoveredImage, setHoveredImage] = useState<HTMLImageElement | null>(null);
   const [imageRect, setImageRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
@@ -350,8 +345,42 @@ export const EditorArea = ({
       replacement: function (_content, node) {
         const languageSpan = (node as HTMLElement).querySelector('.language-label');
         const language = languageSpan ? languageSpan.textContent?.trim().toLowerCase() : '';
-        const codeContainer = (node as HTMLElement).querySelector('code');
-        const code = codeContainer ? codeContainer.textContent : '';
+        let codeContainer = (node as HTMLElement).querySelector('code');
+        
+        // Firefox/Chrome can strip the <code> tag during complex selections inside contenteditable.
+        if (!codeContainer) {
+          codeContainer = (node as HTMLElement).querySelector('.code-container') || node;
+        }
+        
+        const extractTextWithNewlines = (el: Node): string => {
+          let text = '';
+          for (let i = 0; i < el.childNodes.length; i++) {
+            const child = el.childNodes[i];
+            if (child.nodeType === Node.TEXT_NODE) {
+              text += child.textContent || '';
+            } else if (child.nodeType === Node.ELEMENT_NODE) {
+              const elName = child.nodeName.toUpperCase();
+              if (elName === 'BR') {
+                text += '\n';
+              } else if (elName === 'DIV' || elName === 'P') {
+                if (text && !text.endsWith('\n')) {
+                  text += '\n';
+                }
+                text += extractTextWithNewlines(child);
+                if (!text.endsWith('\n')) {
+                  text += '\n';
+                }
+              } else {
+                text += extractTextWithNewlines(child);
+              }
+            }
+          }
+          return text;
+        };
+
+        const codeTextRaw = codeContainer ? extractTextWithNewlines(codeContainer) : '';
+        // Remove exactly one trailing newline if it exists because our extraction adds one for the last block element
+        const code = codeTextRaw.endsWith('\n') ? codeTextRaw.slice(0, -1) : codeTextRaw;
         const lang = language === 'code' ? '' : language;
         return `\n\n\`\`\`${lang}\n${code}\n\`\`\`\n\n`;
       }
@@ -518,18 +547,7 @@ export const EditorArea = ({
     }
   }, [handleContentChange, turndownService]);
 
-  const deleteTable = useCallback(() => {
-    if (hoveredTable && hoveredTable.parentNode) {
-      const wrapper = hoveredTable.closest('.table-wrapper');
-      if (wrapper) {
-        wrapper.remove();
-      } else {
-        hoveredTable.remove();
-      }
-      setHoveredTable(null);
-      flushPreviewEdit();
-    }
-  }, [hoveredTable, flushPreviewEdit]);
+
 
   const handleImageResizeStart = useCallback((e: React.MouseEvent, direction: string = 'se') => {
     if (!hoveredImage) return;
@@ -639,17 +657,7 @@ export const EditorArea = ({
     flushPreviewEdit();
   }, [hoveredImage, flushPreviewEdit]);
 
-  const sparkleTable = useCallback(() => {
-    if (hoveredTable) {
-      /* eslint-disable react-hooks/immutability */
-      hoveredTable.style.transition = 'all 0.5s ease';
-      hoveredTable.style.boxShadow = '0 0 15px rgba(251, 191, 36, 0.5)';
-      setTimeout(() => {
-        hoveredTable.style.boxShadow = 'none';
-      }, 1000);
-      /* eslint-enable react-hooks/immutability */
-    }
-  }, [hoveredTable]);
+
 
   const handleTableEditConfirm = useCallback((targetRows: number, targetCols: number, curveClass: string, tableData?: { headers: string[], rows: string[][], alignments?: string[] }) => {
     if (!hoveredTable) return;
@@ -1090,7 +1098,7 @@ export const EditorArea = ({
         // Let the auto-update happen via the oninput handler on the code tag itself
       }
     }
-  }, []);
+  }, [flushPreviewEdit]);
 
   const prevAutoMarkdown = useRef(isAutoMarkdownEnabled);
   
@@ -1134,12 +1142,58 @@ export const EditorArea = ({
 
   const handleSelectionChange = useCallback(() => {
     // Disabled text selection hover based on user request
-  }, []);
+    if (!previewRef.current || isViewMode) return;
+    
+    // Process active table row for floating delete icon
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !sel.anchorNode) {
+      setActiveTableRow(null);
+      return;
+    }
+    const node = sel.anchorNode;
+    if (!previewRef.current.contains(node)) {
+      setActiveTableRow(null);
+      return;
+    }
+    const tr = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node as Element)?.closest('tr');
+    if (tr && previewRef.current.contains(tr)) {
+      setActiveTableRow(tr as HTMLTableRowElement);
+      const rect = tr.getBoundingClientRect();
+      const parentRect = previewRef.current.parentElement!.getBoundingClientRect();
+      setActiveTableRowRect({
+        top: rect.top - parentRect.top,
+        left: rect.left - parentRect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    } else {
+      setActiveTableRow(null);
+    }
+  }, [isViewMode]);
 
   useEffect(() => {
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [handleSelectionChange]);
+
+  useEffect(() => {
+    if (!activeTableRow || !previewRef.current) return;
+    const observer = new ResizeObserver(() => {
+      const parentRect = previewRef.current!.parentElement?.getBoundingClientRect();
+      const rect = activeTableRow.getBoundingClientRect();
+      if (parentRect) {
+        setActiveTableRowRect({
+          top: rect.top - parentRect.top,
+          left: rect.left - parentRect.left,
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    });
+
+    observer.observe(activeTableRow);
+    return () => observer.disconnect();
+  }, [activeTableRow]);
 
   useEffect(() => {
     const el = previewRef.current;
@@ -1170,9 +1224,9 @@ export const EditorArea = ({
             const elTarget = targetToDelete as HTMLElement;
             if (
               elTarget.classList.contains('bookmark-marker') || 
-              elTarget.classList.contains('image-wrapper') || 
+              elTarget.tagName.toLowerCase() === 'img' || 
               elTarget.classList.contains('code-block-wrapper') ||
-              elTarget.classList.contains('table-wrapper')
+              elTarget.tagName.toLowerCase() === 'table'
             ) {
               e.preventDefault();
               elTarget.remove();
@@ -1249,48 +1303,55 @@ export const EditorArea = ({
         onClick={handleCursorMove}
         onPaste={handlePaste}
         className={cn(
-          "prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] text-lg prose-p:leading-[1.8] prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline prose-strong:font-semibold prose-strong:text-foreground prose-li:marker:text-muted-foreground prose-hr:border-border prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:bg-muted/20 prose-blockquote:px-6 prose-blockquote:py-3 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:rounded-r-lg prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-slate-800/80 prose-code:border prose-code:border-slate-200 dark:prose-code:border-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.85em] prose-code:font-medium prose-code:shadow-[0_1px_2px_rgba(0,0,0,0.05)] prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px]",
+          "prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] text-lg prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-slate-800/80 prose-code:border prose-code:border-slate-200 dark:prose-code:border-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.85em] prose-code:font-medium prose-code:shadow-[0_1px_2px_rgba(0,0,0,0.05)] prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px]",
           isEraserMode && "cursor-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%23f43f5e\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21\"/><path d=\"M22 21H7\"/><path d=\"m5 11 9 9\"/></svg>'),_crosshair]"
         )}
         role="textbox"
         aria-multiline="true"
         aria-label="Editor content"
       />
-      {!isViewMode && hoveredTable && tableRect && (
+      {!isViewMode && activeTableRow && activeTableRowRect && (
         <>
           <div 
-            className="table-floating-toolbar absolute z-50 flex items-center justify-center"
+            className="table-floating-toolbar absolute z-[1] flex items-center justify-center gap-0.5 bg-background border border-border rounded-md shadow-[0_2px_8px_rgba(0,0,0,0.08)] pointer-events-auto px-0.5 py-0.5"
             style={{ 
-              top: tableRect.top - 12, 
-              left: tableRect.left - 12,
+              top: activeTableRowRect.top, 
+              left: activeTableRowRect.left,
+              transform: 'translate(-50%, -50%)'
             }}
           >
             <button 
-              onClick={() => setIsTableEditDialogOpen(true)}
-              className="p-1.5 bg-background border border-border text-muted-foreground hover:text-blue-500 hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md shadow-sm transition-colors"
-              title="Edit Table Dimensions"
+              onClick={(e) => { e.preventDefault(); setIsTableEditDialogOpen(true); }}
+              className="p-1 px-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded transition-colors"
+              title="Table Settings"
             >
               <Settings2 className="w-4 h-4" />
             </button>
           </div>
           <div 
-            className="table-floating-toolbar absolute z-50 flex items-center justify-center gap-1"
+            className="table-floating-toolbar absolute z-[1] flex items-center justify-center bg-background border border-border rounded-md shadow-[0_2px_8px_rgba(0,0,0,0.08)] pointer-events-auto px-0.5 py-0.5"
             style={{ 
-              top: tableRect.top - 12, 
-              left: tableRect.left + tableRect.width - 50,
+              top: activeTableRowRect.top, 
+              left: activeTableRowRect.left + activeTableRowRect.width,
+              transform: 'translate(-50%, -50%)'
             }}
           >
             <button 
-              onClick={sparkleTable}
-              className="p-1.5 bg-background border border-border text-muted-foreground hover:text-amber-500 hover:border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-md shadow-sm transition-colors"
-              title="Magic Format"
-            >
-              <Sparkles className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={deleteTable}
-              className="p-1.5 bg-background border border-border text-muted-foreground hover:text-red-500 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-md shadow-sm transition-colors"
-              title="Delete Table"
+              onClick={(e) => { 
+                  e.preventDefault(); 
+                  const table = activeTableRow.closest('table');
+                  activeTableRow.remove();
+                  if (table && table.querySelectorAll('tr').length === 0) {
+                     const wrapper = table.closest('.table-wrapper');
+                     if (wrapper) wrapper.remove();
+                     else table.remove();
+                     setHoveredTable(null);
+                  }
+                  flushPreviewEdit();
+                  setActiveTableRow(null);
+              }}
+              className="p-1 px-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
+              title="Delete Row"
             >
               <Trash2 className="w-4 h-4" />
             </button>

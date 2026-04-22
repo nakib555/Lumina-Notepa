@@ -122,14 +122,15 @@ export function Sidebar({
           </div>
         </div>
       
-      <div className="p-4 space-y-3">
-        <div className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" aria-hidden="true" />
+      <div className="p-4 space-y-3 shrink-0">
+        <div className="relative group/search">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors" aria-hidden="true" />
           <input 
             type="text" 
             placeholder="Search notes..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            autoComplete="off"
             onFocus={() => {
               const meta = document.querySelector('meta[name=viewport]');
               if (meta) meta.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0');
@@ -138,7 +139,7 @@ export function Sidebar({
               const meta = document.querySelector('meta[name=viewport]');
               if (meta) meta.setAttribute('content', 'width=device-width, initial-scale=1.0, interactive-widget=resizes-content, maximum-scale=1.0, user-scalable=0');
             }}
-            className="w-full pl-9 pr-4 py-2 text-base sm:text-sm bg-muted/50 border-transparent focus:bg-background focus:border-border rounded-xl outline-none transition-all placeholder:text-muted-foreground text-foreground focus:ring-2 focus:ring-primary"
+            className="w-full pl-9 pr-4 py-2 text-base sm:text-sm bg-muted/40 border border-transparent focus:bg-background focus:border-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-sm focus:shadow-md focus:shadow-primary/5 focus:ring-0"
             aria-label="Search notes"
           />
         </div>
@@ -154,10 +155,10 @@ export function Sidebar({
             <button
               onClick={() => setSelectedTags([])}
               className={cn(
-                "px-2.5 py-1 rounded-full text-[11px] font-medium transition-all focus:outline-none focus:ring-2 focus:ring-primary",
+                "px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary",
                 selectedTags.length === 0 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20 scale-105 my-0.5" 
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 my-0.5"
               )}
               aria-pressed={selectedTags.length === 0}
             >
@@ -168,10 +169,10 @@ export function Sidebar({
                 key={tag}
                 onClick={() => toggleTag(tag)}
                 className={cn(
-                  "px-2.5 py-1 rounded-full text-[11px] font-medium transition-all flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary",
+                  "px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200 active:scale-95 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary",
                   selectedTags.includes(tag)
-                    ? "bg-primary text-primary-foreground shadow-sm" 
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20 scale-105 my-0.5" 
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 my-0.5"
                 )}
                 aria-pressed={selectedTags.includes(tag)}
               >

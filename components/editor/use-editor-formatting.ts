@@ -71,32 +71,35 @@ export const useEditorFormatting = (
     } else if (prefix.includes("| Header |")) {
       const tableHTML = `<div class="overflow-x-auto w-full table-wrapper my-8"><table class="w-full m-0"><thead><tr><th>Header</th><th>Header</th></tr></thead><tbody><tr><td>Cell</td><td>Cell</td></tr></tbody></table></div><p>&#8203;</p>`;
       document.execCommand('insertHTML', false, tableHTML);
-    } else if (prefix === "```\n") {
+    } else if (prefix.match(/^```[a-zA-Z0-9-]*\n$/)) {
+      const match = prefix.match(/^```([a-zA-Z0-9-]*)\n$/);
+      const langRaw = match ? match[1] : '';
+      const displayLang = langRaw ? langRaw.charAt(0).toUpperCase() + langRaw.slice(1) : 'Code';
+      
       const codeHTML = `
-<div class="code-block-wrapper border border-slate-200 dark:border-slate-800/80 rounded-xl my-6 overflow-hidden not-prose shadow-sm" contenteditable="false">
-  <div class="bg-slate-100/50 dark:bg-slate-900/50 px-4 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800/80 backdrop-blur-sm">
-    <div class="flex items-center gap-3">
-      <div class="flex gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
-        <div class="w-2.5 h-2.5 rounded-full bg-red-400/80"></div>
-        <div class="w-2.5 h-2.5 rounded-full bg-amber-400/80"></div>
-        <div class="w-2.5 h-2.5 rounded-full bg-green-400/80"></div>
-      </div>
-      <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tracking-widest uppercase language-label">CODE</span>
+<div class="code-block-wrapper border border-[#e5e7eb] dark:border-[#374151] rounded-md my-6 overflow-hidden not-prose shadow-sm" contenteditable="false">
+  <div class="bg-[#f8f9fa] dark:bg-[#1f2937] border-b border-[#e5e7eb] dark:border-[#374151] px-4 py-2 flex justify-between items-center text-[13px]">
+    <div class="font-semibold text-[#6366f1] dark:text-[#818cf8] language-label flex items-center">
+      ${displayLang}
     </div>
-    <div class="flex items-center gap-2">
-      <button class="bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 px-2.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95 copy-btn" onclick="navigator.clipboard.writeText(this.closest('.code-block-wrapper').querySelector('code').textContent); this.textContent='COPIED!'; setTimeout(() => this.textContent='COPY', 2000);">COPY</button>
-      <button class="bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/30 transition-all active:scale-95" onclick="const wrapper = this.closest('.code-block-wrapper'); const next = wrapper.nextElementSibling; if(next && next.tagName === 'P' && next.innerHTML.includes('&#8203;')) next.remove(); wrapper.remove();" title="Delete code block">
+    <div class="flex items-center gap-4">
+      <button class="flex items-center gap-1 text-[#6366f1] dark:text-[#818cf8] hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer">
+        <span class="text-xs">»</span> Open
+      </button>
+      <button class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity bg-transparent border-none cursor-pointer copy-btn" onclick="navigator.clipboard.writeText(this.closest('.code-block-wrapper').querySelector('.code-element').textContent); const span = this.querySelector('.copy-text'); span.textContent='Copied'; setTimeout(() => span.textContent='Copy', 2000);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <span class="copy-text">Copy</span>
+      </button>
+      <button class="flex items-center gap-1.5 text-slate-400 hover:text-red-500 transition-opacity bg-transparent border-none cursor-pointer delete-btn" onclick="const wrapper = this.closest('.code-block-wrapper'); const next = wrapper.nextElementSibling; if(next && next.tagName === 'P' && next.innerHTML.includes('&#8203;')) next.remove(); wrapper.remove();" title="Delete code block">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
       </button>
     </div>
   </div>
-  <div class="flex bg-slate-50/50 dark:bg-[#0d1117] m-0 items-stretch">
-    <div class="line-numbers py-4 pl-4 pr-3 text-right text-slate-400 dark:text-slate-500/50 select-none font-mono text-[13px] leading-[1.6] min-w-[3rem] border-r border-slate-200/40 dark:border-slate-800/40">
-      1
-    </div>
-    <pre class="py-4 px-0 overflow-x-auto m-0 w-full"><code class="hljs bg-transparent px-4 py-0 text-[13px] leading-[1.6] font-mono text-slate-800 dark:text-slate-200 border-none outline-none block" contenteditable="true" oninput="this.parentElement.previousElementSibling.innerHTML = Array.from({ length: (this.innerText.match(/\\n/g) || []).length + 1 }, (_, i) => i + 1).join('<br/>')">// Your code here...</code></pre>
+  <div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto w-full code-container m-0 text-slate-800 dark:text-slate-200">
+    <pre style="margin:0;padding:1.5rem;font-size:13px;line-height:1.5;font-family:'Fira Code', monospace;background:transparent;"><code class="code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none]" contenteditable="true">// Your code here...</code></pre>
   </div>
-</div><p>&#8203;</p>`;
+</div>
+<p>&#8203;</p>`;
       document.execCommand('insertHTML', false, codeHTML);
     } else {
       document.execCommand('insertText', false, prefix);

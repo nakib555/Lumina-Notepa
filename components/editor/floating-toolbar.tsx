@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   Bold, Italic, Underline, Strikethrough, Subscript, Superscript, 
   Quote, Code, Terminal, Link, Image, Minus, Table, List, ListOrdered, ListTodo,
   Heading1, Heading2, Heading3, Sigma, MousePointer2, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Scissors, Copy, ClipboardPaste, X, Eraser,
-  AlignLeft, AlignCenter, AlignRight, Wand2, Bookmark, ChevronLeft, ChevronRight
+  AlignLeft, AlignCenter, AlignRight, Wand2, Bookmark, ChevronLeft, ChevronRight, Search, ChevronDown, ChevronUp, CornerDownRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -59,7 +59,91 @@ export const FloatingToolbar = ({
 }: FloatingToolbarProps) => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [replaceQuery, setReplaceQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const savedRangeRef = useRef<Range | null>(null);
+
+  const [matchCount, setMatchCount] = useState(0);
+
+  useEffect(() => {
+    if (!searchQuery || !textareaRef.current) {
+      setMatchCount(0);
+      return;
+    }
+    const text = textareaRef.current.innerText || "";
+    // Escape regex characters
+    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = text.match(new RegExp(escapedQuery, 'gi'));
+    setMatchCount(matches ? matches.length : 0);
+  }, [searchQuery, textareaRef]);
+
+  const handleSearch = (forward: boolean = true) => {
+    if (!searchQuery) return;
+    ensureFocus();
+    
+    // aString, aCaseSensitive, aBackwards, aWrapAround, aWholeWord, aSearchInFrames, aShowDialog
+    const found = window.find(searchQuery, false, !forward, true, false, false, false);
+    
+    if (found) {
+      scrollToSelection();
+    } else {
+      toast.error("Text not found");
+    }
+  };
+
+  const handleReplace = () => {
+    if (!searchQuery) return;
+    ensureFocus();
+    const selection = window.getSelection();
+    
+    // If we have something selected that matches the query, replace it
+    if (selection && !selection.isCollapsed && selection.toString().toLowerCase() === searchQuery.toLowerCase()) {
+      document.execCommand('insertText', false, replaceQuery);
+      // Automatically find next
+      handleSearch(true);
+    } else {
+      // Otherwise just start by finding the first available match
+      handleSearch(true);
+    }
+  };
+
+  const handleReplaceAll = () => {
+    if (!searchQuery) return;
+    ensureFocus();
+    
+    const selection = window.getSelection();
+    if (selection && textareaRef.current) {
+      // Move to top to ensure we replace everything from the beginning
+      selection.collapse(textareaRef.current, 0);
+    }
+    
+    let count = 0;
+    const maxSafeguard = 5000;
+    // Walk through and replace (wrapAround=false so it stops at bottom)
+    while (window.find(searchQuery, false, false, false, false, false, false) && count < maxSafeguard) {
+      const selText = window.getSelection()?.toString();
+      if (selText && selText.toLowerCase() === searchQuery.toLowerCase()) {
+        document.execCommand('insertText', false, replaceQuery);
+        count++;
+      } else {
+        break; // Fail-safe
+      }
+    }
+    
+    if (count > 0) {
+      toast.success(`Replaced ${count} occurrences`);
+    } else {
+      toast.error("Text not found");
+    }
+  };
+
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
   
   const selectionToolbarRef = useRef<HTMLDivElement>(null);
   const {
@@ -499,34 +583,128 @@ export const FloatingToolbar = ({
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
         className={cn(
-          "flex items-center gap-1 bg-background/90 backdrop-blur-md border border-border rounded-2xl py-1.5 px-2 overflow-x-auto no-scrollbar max-w-[88vw] md:max-w-[700px] flex-nowrap select-none touch-pan-x",
+          "flex items-center gap-1 bg-background/90 backdrop-blur-md border border-border rounded-2xl py-1.5 px-2 overflow-x-auto no-scrollbar max-w-[88vw] md:max-w-[700px] flex-nowrap select-none touch-pan-x min-h-[44px] transition-[width,height,padding,background-color,max-width,min-width] duration-300 ease-in-out",
           isDragging ? "cursor-grabbing" : "cursor-grab"
         )}
       >
-        {/* Selection Mode Toggle */}
-        <div className="flex items-center gap-0.5 pr-1 border-r border-border">
-          <Button
-          onMouseDown={(e) => e.preventDefault()}
-          variant="ghost"
-            size="icon"
-          onClick={() => {
-              const newMode = !isSelectionMode;
-              setIsSelectionMode(newMode);
-              if (newMode) {
-                setShowSymbolMenu(false);
-              }
-            }}
-            className={cn(
-              "h-8 w-8 rounded-lg shrink-0 transition-colors",
-              isSelectionMode
-                ? "text-blue-600 bg-blue-500/20 dark:text-blue-400 dark:bg-blue-500/30"
-                : "text-blue-500 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
-            )}
-            title="Selection Mode"
-          >
-            <MousePointer2 className="w-4 h-4" />
-          </Button>
-        </div>
+        {isSearchOpen ? (
+          <div className="flex flex-col w-full min-w-[280px] sm:min-w-[340px] px-1 py-0.5 animate-in fade-in zoom-in-[0.98] duration-200">
+             {/* Search Row */}
+             <div className="flex items-center w-full shrink-0 h-8">
+               <Search className="w-4 h-4 text-muted-foreground/80 ml-1.5 shrink-0" />
+               <input
+                 ref={searchInputRef}
+                 type="text"
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+                 onKeyDown={(e) => {
+                   if (e.key === 'Enter') {
+                     e.preventDefault();
+                     handleSearch(!e.shiftKey);
+                   } else if (e.key === 'Escape') {
+                     setIsSearchOpen(false);
+                   }
+                 }}
+                 placeholder="Find text..."
+                 autoComplete="off"
+                 className="flex-1 bg-transparent border-none outline-none text-sm px-2.5 min-w-[80px] placeholder:text-muted-foreground/60 focus:ring-0 text-foreground"
+                 onMouseDown={(e) => e.stopPropagation()}
+               />
+               <span className="text-[10px] font-medium text-muted-foreground/70 mr-2 shrink-0 select-none hidden sm:inline-block">
+                 {searchQuery ? `${matchCount} found` : ''}
+               </span>
+               <div className="flex items-center shrink-0 pr-1">
+                 <button onClick={() => handleSearch(false)} className="p-1 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all duration-200" title="Previous (Shift+Enter)">
+                   <ChevronUp className="w-4 h-4" />
+                 </button>
+                 <button onClick={() => handleSearch(true)} className="p-1 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all duration-200" title="Next (Enter)">
+                   <ChevronDown className="w-4 h-4" />
+                 </button>
+                 <div className="w-[1px] h-3.5 bg-border/60 mx-1" />
+                 <button onClick={() => setIsSearchOpen(false)} className="p-1 rounded-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-95 transition-all duration-200">
+                   <X className="w-4 h-4" />
+                 </button>
+               </div>
+             </div>
+             
+             {/* Divider */}
+             <div className="w-full h-[1px] bg-border/50 my-1" />
+             
+             {/* Replace Row */}
+             <div className="flex items-center w-full shrink-0 h-8 mb-0.5">
+               <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/50 ml-1.5 shrink-0" />
+               <input
+                 type="text"
+                 value={replaceQuery}
+                 onChange={(e) => setReplaceQuery(e.target.value)}
+                 onKeyDown={(e) => {
+                   if (e.key === 'Enter') {
+                     e.preventDefault();
+                     if (e.shiftKey) handleReplaceAll();
+                     else handleReplace();
+                   } else if (e.key === 'Escape') {
+                     setIsSearchOpen(false);
+                   }
+                 }}
+                 placeholder="Replace with..."
+                 autoComplete="off"
+                 className="flex-1 bg-transparent border-none outline-none text-sm px-2.5 min-w-[80px] text-foreground placeholder:text-muted-foreground/60 focus:ring-0"
+                 onMouseDown={(e) => e.stopPropagation()}
+               />
+               <div className="flex items-center gap-1.5 shrink-0 pr-2">
+                 <button 
+                   onClick={handleReplace} 
+                   className="h-6 px-3 text-[11px] font-medium bg-background border border-border/80 text-foreground hover:bg-muted active:scale-95 rounded text-center shadow-sm transition-all duration-200"
+                   title="Replace"
+                 >
+                   Replace
+                 </button>
+                 <button 
+                   onClick={handleReplaceAll} 
+                   className="h-6 px-3 text-[11px] font-medium bg-background border border-border/80 text-foreground hover:bg-muted active:scale-95 rounded text-center shadow-sm transition-all duration-200"
+                   title="Replace All"
+                 >
+                   All
+                 </button>
+               </div>
+             </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-0.5 animate-in fade-in zoom-in-[0.98] duration-200">
+            {/* Selection Mode Toggle */}
+            <div className="flex items-center gap-0.5 pr-1 border-r border-border">
+              <Button
+                onMouseDown={(e) => e.preventDefault()}
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const newMode = !isSelectionMode;
+                  setIsSelectionMode(newMode);
+                  if (newMode) {
+                    setShowSymbolMenu(false);
+                  }
+                }}
+                className={cn(
+                  "h-8 w-8 rounded-lg shrink-0 transition-colors",
+                  isSelectionMode
+                    ? "text-blue-600 bg-blue-500/20 dark:text-blue-400 dark:bg-blue-500/30"
+                    : "text-blue-500 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                )}
+                title="Selection Mode"
+              >
+                <MousePointer2 className="w-4 h-4" />
+              </Button>
+              <Button
+                onMouseDown={(e) => e.preventDefault()}
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsSearchOpen(true)}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0 transition-colors"
+                title="Find in document"
+              >
+                <Search className="w-4 h-4" />
+              </Button>
+            </div>
 
       {/* Font Style & Size Group */}
       <div className="flex items-center gap-0.5 px-1 border-r border-border">
@@ -893,7 +1071,9 @@ export const FloatingToolbar = ({
           <Sigma className="w-4 h-4" />
         </Button>
       </div>
-    </div>
+          </div>
+        )}
+      </div>
     </>
   );
 };

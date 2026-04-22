@@ -33,6 +33,7 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
   const [tableData, setTableData] = useState<{headers: string[], rows: string[][], alignments: string[]}>({ headers: [], rows: [], alignments: [] });
   const [selectedCell, setSelectedCell] = useState<{ r: number, c: number } | null>(null);
   const [isKeyboardLocked, setIsKeyboardLocked] = useState<boolean>(true);
+  const [isDndLocked, setIsDndLocked] = useState<boolean>(true);
 
   useEffect(() => {
     if (isOpen && table) {
@@ -425,6 +426,15 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
                   <Button 
                     variant="ghost" 
                     size="icon" 
+                    className={`h-6 w-6 rounded-md ${isDndLocked ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    onClick={() => setIsDndLocked(!isDndLocked)}
+                    title={isDndLocked ? "Unlock drag AND drop" : "Lock drag AND drop (prevents accidental dragging)"}
+                  >
+                    {isDndLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
                     className={`h-6 w-6 rounded-md ${isKeyboardLocked ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
                     onClick={() => setIsKeyboardLocked(!isKeyboardLocked)}
                     title={isKeyboardLocked ? "Unlock text editing" : "Lock text editing (prevents virtual keyboard)"}
@@ -474,35 +484,37 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
                         {Array.from({ length: previewCols }).map((_, i) => (
                           <th 
                             key={i} 
-                            draggable
-                            onDragStart={(e) => handleDragColStart(e, i)}
+                            draggable={!isDndLocked}
+                            onDragStart={(e) => !isDndLocked && handleDragColStart(e, i)}
                             onDragOver={(e) => {
-                             if (draggedColIndex !== null) {
+                             if (!isDndLocked && draggedColIndex !== null) {
                                e.preventDefault();
                                handleDragColOver(e);
                              }
-                             else if (draggedRowIndex !== null) {
+                             else if (!isDndLocked && draggedRowIndex !== null) {
                                e.preventDefault();
                                handleDragRowOver(e);
                              }
                             }}
                             onDrop={(e) => {
-                             if (draggedColIndex !== null) {
+                             if (!isDndLocked && draggedColIndex !== null) {
                                e.preventDefault();
                                handleDragColDrop(e, i);
                              }
-                             else if (draggedRowIndex !== null) {
+                             else if (!isDndLocked && draggedRowIndex !== null) {
                                e.preventDefault();
                                handleDragRowDrop(e, 0);
                              }
                             }}
                             onDragEnd={() => {
-                              setDraggedColIndex(null);
-                              setDraggedRowIndex(null);
+                              if (!isDndLocked) {
+                                setDraggedColIndex(null);
+                                setDraggedRowIndex(null);
+                              }
                             }}
                             onClick={() => handleCellClick(-1, i)} 
-                            className={`p-3 bg-muted text-xs font-medium text-muted-foreground whitespace-nowrap cursor-text transition-colors hover:bg-muted/80 ${selectedCell?.r === -1 && selectedCell?.c === i ? 'ring-2 ring-inset ring-primary z-30 relative' : ''} ${draggedColIndex === i ? 'opacity-50 blur-[1px]' : ''} ${isRounded ? 'border-b border-r last:border-r-0 border-border/50' : 'border border-border/50'}`}
-                            style={{ textAlign: (tableData.alignments[i] as React.CSSProperties['textAlign']) || 'left', cursor: 'grab' }}
+                            className={`p-3 bg-muted text-xs font-medium text-muted-foreground whitespace-nowrap transition-colors hover:bg-muted/80 ${selectedCell?.r === -1 && selectedCell?.c === i ? 'ring-2 ring-inset ring-primary z-30 relative' : ''} ${draggedColIndex === i ? 'opacity-50 blur-[1px]' : ''} ${isRounded ? 'border-b border-r last:border-r-0 border-border/50' : 'border border-border/50'} ${!isDndLocked ? 'cursor-grab active:cursor-grabbing' : 'cursor-text'}`}
+                            style={{ textAlign: (tableData.alignments[i] as React.CSSProperties['textAlign']) || 'left' }}
                             contentEditable={!isKeyboardLocked}
                             suppressContentEditableWarning
                             onBlur={(e) => handleCellTextChange(-1, i, e.currentTarget.innerHTML)}
@@ -515,33 +527,35 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
                       {Array.from({ length: Math.max(0, previewRows - 1) }).map((_, r) => (
                         <tr 
                           key={r} 
-                          draggable
-                          onDragStart={(e) => handleDragRowStart(e, r)}
+                          draggable={!isDndLocked}
+                          onDragStart={(e) => !isDndLocked && handleDragRowStart(e, r)}
                           onDragEnd={() => {
-                            setDraggedColIndex(null);
-                            setDraggedRowIndex(null);
+                            if (!isDndLocked) {
+                              setDraggedColIndex(null);
+                              setDraggedRowIndex(null);
+                            }
                           }}
-                          className={`transition-colors hover:bg-muted/30 cursor-grab ${draggedRowIndex === r ? 'opacity-50 blur-[1px] bg-muted/50' : ''}`}
+                          className={`transition-colors hover:bg-muted/30 ${!isDndLocked ? 'cursor-grab' : ''} ${draggedRowIndex === r ? 'opacity-50 blur-[1px] bg-muted/50' : ''}`}
                         >
                           {Array.from({ length: previewCols }).map((_, c) => (
                             <td 
                               key={c} 
                               onDragOver={(e) => {
-                              if (draggedColIndex !== null) {
+                              if (!isDndLocked && draggedColIndex !== null) {
                                 e.preventDefault();
                                 handleDragColOver(e);
                               }
-                              else if (draggedRowIndex !== null) {
+                              else if (!isDndLocked && draggedRowIndex !== null) {
                                 e.preventDefault();
                                 handleDragRowOver(e);
                               }
                               }}
                               onDrop={(e) => {
-                              if (draggedColIndex !== null) {
+                              if (!isDndLocked && draggedColIndex !== null) {
                                 e.preventDefault();
                                 handleDragColDrop(e, c);
                               }
-                              else if (draggedRowIndex !== null) {
+                              else if (!isDndLocked && draggedRowIndex !== null) {
                                 e.preventDefault();
                                 handleDragRowDrop(e, r);
                               }
