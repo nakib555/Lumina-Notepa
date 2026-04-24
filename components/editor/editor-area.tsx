@@ -85,7 +85,10 @@ const CUSTOM_STYLE = {
 
 renderer.code = function(token) {
   const code = token.text;
-  const rawLang = (token.lang || '').match(/\S*/)?.[0]?.toLowerCase() || '';
+  let rawLang = (token.lang || '').match(/\S*/)?.[0]?.toLowerCase() || '';
+  if (!rawLang) {
+    rawLang = 'text';
+  }
   
   const langAliases: Record<string, string> = { text: 'text', plaintext: 'text', txt: 'text', raw: 'text' };
   const lang = langAliases[rawLang] || rawLang;
@@ -106,7 +109,7 @@ renderer.code = function(token) {
     // Fallback style converted to inline CSS for the pre tag
     const inlineStyle = "margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;";
     
-    highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
+    highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
   } else {
     try {
       highlightedContent = renderToStaticMarkup(
@@ -116,7 +119,7 @@ renderer.code = function(token) {
           customStyle={CUSTOM_STYLE}
           PreTag="div"
           codeTagProps={{
-            className: "code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none] font-mono"
+            className: "code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono"
           }}
         >
           {code}
@@ -127,7 +130,7 @@ renderer.code = function(token) {
     } catch {
       const inlineStyle = "margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;";
       const escapeHtml = (unsafe: string) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
+      highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
     }
   }
 
@@ -150,7 +153,7 @@ renderer.code = function(token) {
       </button>
     </div>
   </div>
-  <div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre font-mono m-0 text-slate-800 dark:text-slate-200">
+  <div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre-wrap font-mono m-0 text-slate-800 dark:text-slate-200">
     ${highlightedContent}
   </div>
 </div>
@@ -741,18 +744,21 @@ export const EditorArea = ({
     hoveredImage.alt = alt;
     hoveredImage.title = alt; // Use alt as caption title
     
-    // Remove individual display/margin styles for alignment, rely on parent wrapper
-    hoveredImage.style.display = '';
-    hoveredImage.style.marginLeft = '';
-    hoveredImage.style.marginRight = '';
+    // Apply alignment via margins since prose typically makes images block elements
+    hoveredImage.style.display = 'block';
+    
+    if (align === 'center') {
+      hoveredImage.style.marginLeft = 'auto';
+      hoveredImage.style.marginRight = 'auto';
+    } else if (align === 'right') {
+      hoveredImage.style.marginLeft = 'auto';
+      hoveredImage.style.marginRight = '0';
+    } else { // left
+      hoveredImage.style.marginLeft = '0';
+      hoveredImage.style.marginRight = 'auto';
+    }
     /* eslint-enable react-hooks/immutability */
 
-    // Use standard block alignment on the parent wrapper P or DIV
-    const blockWrapper = hoveredImage.closest('p, div');
-    if (blockWrapper) {
-      (blockWrapper as HTMLElement).style.textAlign = align;
-    }
-    
     flushPreviewEdit();
   }, [hoveredImage, flushPreviewEdit]);
 
@@ -917,7 +923,7 @@ export const EditorArea = ({
              const codeContainers = previewRef.current.querySelectorAll('.code-container');
              codeContainers.forEach((container: Element) => {
                if (!container.querySelector('pre')) {
-                   // Wrap contents in <pre><code class="... whitespace-pre font-mono ...">
+                   // Wrap contents in <pre><code class="... whitespace-pre-wrap font-mono ...">
                    const docFrag = document.createDocumentFragment();
                    while (container.firstChild) {
                        docFrag.appendChild(container.firstChild);
@@ -927,7 +933,7 @@ export const EditorArea = ({
                    preEl.style.cssText = "margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;";
                    
                    const codeEl = document.createElement('code');
-                   codeEl.className = "code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none] font-mono";
+                   codeEl.className = "code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono";
                    codeEl.setAttribute('contenteditable', 'plaintext-only');
                    
                    codeEl.appendChild(docFrag);
@@ -1486,8 +1492,8 @@ export const EditorArea = ({
                      .replace(/&/g, '&amp;')
                      .replace(/</g, '&lt;')
                      .replace(/>/g, '&gt;');
-                  const codeHtml = `<pre style="margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;"><code class="code-element outline-none block min-h-[20px] whitespace-pre [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${codeContent}</code></pre>`;
-                  finalHtml += `<div class="code-block-wrapper border border-[#e5e7eb] dark:border-[#374151] rounded-md my-4 overflow-hidden not-prose shadow-sm max-w-full relative" contenteditable="false"><div class="bg-[#f8f9fa] dark:bg-[#1f2937] border-b border-[#e5e7eb] dark:border-[#374151] px-4 py-2 flex justify-between items-center text-[13px]"><div class="font-semibold text-[#6366f1] dark:text-[#818cf8] language-label flex items-center">${part.language}</div><div class="flex items-center gap-4"><button class="flex items-center gap-1 text-[#6366f1] dark:text-[#818cf8] hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer"><span class="text-xs">»</span> Open</button><button class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity bg-transparent border-none cursor-pointer copy-btn"><span class="copy-text">Copy</span></button><button class="flex items-center gap-1.5 text-slate-400 hover:text-red-500 transition-opacity bg-transparent border-none cursor-pointer delete-btn" title="Delete code block"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></div></div><div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre font-mono m-0 text-slate-800 dark:text-slate-200">${codeHtml}</div></div>`;
+                  const codeHtml = `<pre style="margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;"><code class="code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${codeContent}</code></pre>`;
+                  finalHtml += `<div class="code-block-wrapper border border-[#e5e7eb] dark:border-[#374151] rounded-md my-4 overflow-hidden not-prose shadow-sm max-w-full relative" contenteditable="false"><div class="bg-[#f8f9fa] dark:bg-[#1f2937] border-b border-[#e5e7eb] dark:border-[#374151] px-4 py-2 flex justify-between items-center text-[13px]"><div class="font-semibold text-[#6366f1] dark:text-[#818cf8] language-label flex items-center">${part.language}</div><div class="flex items-center gap-4"><button class="flex items-center gap-1 text-[#6366f1] dark:text-[#818cf8] hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer"><span class="text-xs">»</span> Open</button><button class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity bg-transparent border-none cursor-pointer copy-btn"><span class="copy-text">Copy</span></button><button class="flex items-center gap-1.5 text-slate-400 hover:text-red-500 transition-opacity bg-transparent border-none cursor-pointer delete-btn" title="Delete code block"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></div></div><div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre-wrap font-mono m-0 text-slate-800 dark:text-slate-200">${codeHtml}</div></div>`;
               } else {
                   const paragraphs = part.content.split(/\r?\n\r?\n/);
                   if (paragraphs.length === 1) {
@@ -1565,7 +1571,7 @@ export const EditorArea = ({
         onClick={handleCursorMove}
         onPaste={handlePaste}
         className={cn(
-          "prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] print:pb-0 text-lg prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-slate-800/80 prose-code:border prose-code:border-slate-200 dark:prose-code:border-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.85em] prose-code:font-medium prose-code:shadow-[0_1px_2px_rgba(0,0,0,0.05)] prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px] print:min-h-0 print:prose-pre:break-inside-avoid print:prose-table:break-inside-avoid print:prose-img:break-inside-avoid print:prose-p:break-inside-avoid print:prose-code:break-inside-avoid print:prose-headings:break-after-avoid",
+          "prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] print:pb-0 text-lg prose-p:whitespace-pre-wrap prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-slate-800/80 prose-code:border prose-code:border-slate-200 dark:prose-code:border-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.85em] prose-code:font-medium prose-code:shadow-[0_1px_2px_rgba(0,0,0,0.05)] prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px] print:min-h-0 print:prose-pre:break-inside-avoid print:prose-table:break-inside-avoid print:prose-img:break-inside-avoid print:prose-code:break-inside-avoid print:prose-headings:break-after-avoid",
           isEraserMode && "cursor-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%23f43f5e\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21\"/><path d=\"M22 21H7\"/><path d=\"m5 11 9 9\"/></svg>'),_crosshair]"
         )}
         role="textbox"
