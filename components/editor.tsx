@@ -296,7 +296,7 @@ export function Editor({
               placeholder="Note Title"
               autoComplete="off"
               readOnly={isViewMode}
-              className={cn("w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight print:text-black", isViewMode && "cursor-default")}
+              className={cn("w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight print:text-black print:text-center", isViewMode && "cursor-default")}
             />
             
             {/* Tag Management */}
