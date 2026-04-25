@@ -4,6 +4,9 @@ import { toast } from 'sonner';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
+import { Printer } from '@capgo/capacitor-printer';
+import { marked } from 'marked';
+
 export const useEditorExport = (note: Note | null) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
@@ -13,7 +16,40 @@ export const useEditorExport = (note: Note | null) => {
     setShowExportMenu(false);
     
     if (format === 'pdf') {
-      window.print();
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const contentHTML = await marked.parse(note.content, { async: true });
+          const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="UTF-8">
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 20px; color: #000; }
+                h1, h2, h3 { margin-top: 1.2em; margin-bottom: 0.5em; }
+                img { max-width: 100%; height: auto; }
+                pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+                code { font-family: monospace; }
+                blockquote { border-left: 4px solid #ddd; padding-left: 10px; color: #666; margin-left: 0; }
+              </style>
+            </head>
+            <body>
+              <h1>${note.title || 'Untitled Note'}</h1>
+              ${contentHTML}
+            </body>
+            </html>
+          `;
+          await Printer.printHtml({
+            name: note.title || 'Untitled Note',
+            html: html
+          });
+        } catch (err) {
+          console.error('Print failed:', err);
+          toast.error('Failed to export PDF format natively.');
+        }
+      } else {
+        window.print();
+      }
       return;
     }
 

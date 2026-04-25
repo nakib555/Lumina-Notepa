@@ -1,6 +1,6 @@
 {
   "name": "ai-studio-applet",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -17,6 +17,7 @@
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/network": "^8.0.1",
     "@capawesome-team/capacitor-file-opener": "^8.0.1",
+    "@capgo/capacitor-printer": "^8.0.12",
     "@capgo/capacitor-zip": "^8.1.7",
     "@google/genai": "^1.17.0",
     "@hookform/resolvers": "^5.2.1",
