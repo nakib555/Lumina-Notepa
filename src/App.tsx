@@ -1,16 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useNotes } from "@/hooks/use-notes";
-import { Sidebar } from "@/components/sidebar";
-import { Editor } from "@/components/editor";
-import { CommandPalette } from "@/components/command-palette";
 import { AnimatePresence, motion } from "motion/react";
-import { Feather, Layers, ArrowRight, Edit3, ImageIcon, Eye } from "lucide-react";
+import { Feather, Layers, ArrowRight, Edit3, ImageIcon, Eye, Loader2 } from "lucide-react";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AutoUpdater } from "@/components/auto-updater";
 import { App as CapacitorApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Capacitor } from "@capacitor/core";
 import { toast } from "sonner";
+
+const Editor = lazy(() => import("@/components/editor").then(m => ({ default: m.Editor })));
+const CommandPalette = lazy(() => import("@/components/command-palette").then(m => ({ default: m.CommandPalette })));
+const Sidebar = lazy(() => import("@/components/sidebar").then(m => ({ default: m.Sidebar })));
 
 const INTRO_SLIDES = [
   {
@@ -462,43 +463,49 @@ export default function App() {
           className="flex h-full w-full bg-background overflow-hidden relative print:h-auto print:overflow-visible"
         >
           <AutoUpdater />
-          <Sidebar 
-            notes={notes}
-            folders={folders}
-            activeNoteId={activeNoteId}
-            onSelectNote={handleSelectNote}
-            onCreateNote={createNote}
-            onDeleteNote={deleteNote}
-            onCreateFolder={createFolder}
-            onUpdateFolder={updateFolder}
-            onDeleteFolder={deleteFolder}
-            onMoveNote={(noteId, folderId, referenceId, position) => reorderNote(noteId, folderId, referenceId, position)}
-            onMoveFolder={(folderId, parentId, referenceId, position) => reorderFolder(folderId, parentId, referenceId, position)}
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-            theme={theme}
-            onThemeChange={setTheme}
-          />
-          <Editor
-            note={activeNote}
-            notes={notes}
-            onSelectNote={handleSelectNote}
-            onCreateNote={createNote}
-            onDeleteNote={deleteNote}
-            onUpdateNote={updateNote}
-            onToggleSidebar={() => {
-              setIsSidebarOpen(!isSidebarOpen);
-            }}
-            theme={theme}
-            fontFamily={fontFamily}
-            onFontFamilyChange={setFontFamily}
-          />
-          <CommandPalette 
-            notes={notes}
-            onSelectNote={handleSelectNote}
-            onCreateNote={createNote}
-            onThemeChange={setTheme}
-          />
+          <Suspense fallback={<div className="w-80 h-full border-r border-border shrink-0 bg-background" />}>
+            <Sidebar 
+              notes={notes}
+              folders={folders}
+              activeNoteId={activeNoteId}
+              onSelectNote={handleSelectNote}
+              onCreateNote={createNote}
+              onDeleteNote={deleteNote}
+              onCreateFolder={createFolder}
+              onUpdateFolder={updateFolder}
+              onDeleteFolder={deleteFolder}
+              onMoveNote={(noteId, folderId, referenceId, position) => reorderNote(noteId, folderId, referenceId, position)}
+              onMoveFolder={(folderId, parentId, referenceId, position) => reorderFolder(folderId, parentId, referenceId, position)}
+              isOpen={isSidebarOpen}
+              onClose={() => setIsSidebarOpen(false)}
+              theme={theme}
+              onThemeChange={setTheme}
+            />
+          </Suspense>
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center bg-background"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground/30" /></div>}>
+            <Editor
+              note={activeNote}
+              notes={notes}
+              onSelectNote={handleSelectNote}
+              onCreateNote={createNote}
+              onDeleteNote={deleteNote}
+              onUpdateNote={updateNote}
+              onToggleSidebar={() => {
+                setIsSidebarOpen(!isSidebarOpen);
+              }}
+              theme={theme}
+              fontFamily={fontFamily}
+              onFontFamilyChange={setFontFamily}
+            />
+          </Suspense>
+          <Suspense fallback={null}>
+            <CommandPalette 
+              notes={notes}
+              onSelectNote={handleSelectNote}
+              onCreateNote={createNote}
+              onThemeChange={setTheme}
+            />
+          </Suspense>
         </motion.div>
       )}
     </ErrorBoundary>

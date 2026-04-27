@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useState } from 'react';
+import React, { useRef, useCallback, useEffect, useState, Suspense, lazy } from 'react';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { marked } from 'marked';
@@ -13,14 +13,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { TableEditDialog } from './table-edit-dialog';
-import { ImageEditDialog } from './image-edit-dialog';
 import markedKatex from 'marked-katex-extension';
 import 'katex/dist/katex.min.css';
 import { cn } from "@/lib/utils";
 import { PenTool, Loader2 } from 'lucide-react';
 
-const SketchDialog = React.lazy(() => import('./sketch-dialog').then(module => ({ default: module.SketchDialog })));
+const SketchDialog = lazy(() => import('./sketch-dialog').then(module => ({ default: module.SketchDialog })));
+const TableEditDialog = lazy(() => import('./table-edit-dialog').then(module => ({ default: module.TableEditDialog })));
+const ImageEditDialog = lazy(() => import('./image-edit-dialog').then(module => ({ default: module.ImageEditDialog })));
 
 const CARET_MARKER = '%%%%CARETMARKER%%%%';
 
@@ -1949,12 +1949,14 @@ export const EditorArea = ({
           </div>
       )}
 
-      <TableEditDialog 
-        isOpen={isTableEditDialogOpen}
-        onClose={() => setIsTableEditDialogOpen(false)}
-        table={hoveredTable}
-        onConfirm={handleTableEditConfirm}
-      />
+      <Suspense fallback={null}>
+        <TableEditDialog 
+          isOpen={isTableEditDialogOpen}
+          onClose={() => setIsTableEditDialogOpen(false)}
+          table={hoveredTable}
+          onConfirm={handleTableEditConfirm}
+        />
+      </Suspense>
       {!isViewMode && hoveredSketch && sketchRect && (
         <div 
           className="sketch-floating-toolbar absolute z-50 flex items-center bg-background border border-border shadow-md rounded-lg overflow-hidden print:hidden animate-in fade-in zoom-in-95 duration-200"
@@ -2040,12 +2042,14 @@ export const EditorArea = ({
         </div>
       )}
       
-      <ImageEditDialog
-        isOpen={isImageEditDialogOpen}
-        onClose={() => setIsImageEditDialogOpen(false)}
-        image={hoveredImage}
-        onConfirm={handleImageEditConfirm}
-      />
+      <Suspense fallback={null}>
+        <ImageEditDialog
+          isOpen={isImageEditDialogOpen}
+          onClose={() => setIsImageEditDialogOpen(false)}
+          image={hoveredImage}
+          onConfirm={handleImageEditConfirm}
+        />
+      </Suspense>
       
       {isSketchEditDialogOpen && hoveredSketch && (
         <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm"><span className="flex flex-col items-center gap-2 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin text-primary" /> Loading Sketch...</span></div>}>

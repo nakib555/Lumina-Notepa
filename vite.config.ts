@@ -70,16 +70,21 @@ export default defineConfig({
             if (id.includes('react') || id.includes('react-dom')) {
               return 'vendor';
             }
-            if (id.includes('marked') || id.includes('turndown') || id.includes('react-syntax-highlighter')) {
-              return 'markdown';
-            }
             if (id.includes('@excalidraw')) {
               return 'excalidraw';
             }
-            if (id.includes('lucide-react')) {
-              return 'ui';
+            if (id.includes('marked') || id.includes('turndown') || id.includes('katex')) {
+              return 'markdown';
             }
-            return 'modules';
+            if (id.includes('react-syntax-highlighter') || id.includes('highlight.js')) {
+              return 'highlight';
+            }
+            if (id.includes('motion')) {
+              return 'motion';
+            }
+            if (id.includes('@capacitor')) {
+              return 'capacitor';
+            }
           }
         }
       }

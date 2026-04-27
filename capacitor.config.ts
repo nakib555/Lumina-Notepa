@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.lumina.app',
-  appName: 'Lumina',
+  appId: 'com.lumina.notes',
+  appName: 'Lumina Notepad',
   webDir: 'dist',
   plugins: {
     CapacitorHttp: {

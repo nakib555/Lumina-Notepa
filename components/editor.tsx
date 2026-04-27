@@ -13,12 +13,12 @@ import { useDraggable } from "./editor/use-draggable";
 import { FileText, Menu, Plus, Check, PenTool, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
-import { ImageInsertDialog } from "./editor/image-insert-dialog";
-import { LinkEditDialog } from "./editor/link-edit-dialog";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 const SketchDialog = lazy(() => import('./editor/sketch-dialog').then(module => ({ default: module.SketchDialog })));
+const ImageInsertDialog = lazy(() => import('./editor/image-insert-dialog').then(module => ({ default: module.ImageInsertDialog })));
+const LinkEditDialog = lazy(() => import('./editor/link-edit-dialog').then(module => ({ default: module.LinkEditDialog })));
 
 interface EditorProps {
   note: Note | null;
@@ -495,19 +495,20 @@ export function Editor({
         </div>
       )}
 
-      <ImageInsertDialog 
-        isOpen={showImageDialog}
-        onClose={() => setShowImageDialog(false)}
-        onInsertUrl={handleInsertImageUrl}
-        onInsertFile={handleInsertImageFile}
-      />
-
-      <LinkEditDialog
-        isOpen={showLinkDialog}
-        onClose={() => setShowLinkDialog(false)}
-        onConfirm={handleInsertLink}
-        initialText={initialLinkText}
-      />
+      <Suspense fallback={null}>
+        <ImageInsertDialog 
+          isOpen={showImageDialog}
+          onClose={() => setShowImageDialog(false)}
+          onInsertUrl={handleInsertImageUrl}
+          onInsertFile={handleInsertImageFile}
+        />
+        <LinkEditDialog
+          isOpen={showLinkDialog}
+          onClose={() => setShowLinkDialog(false)}
+          onConfirm={handleInsertLink}
+          initialText={initialLinkText}
+        />
+      </Suspense>
 
       {hasLoadedSketch && (
         <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm"><span className="flex flex-col items-center gap-2 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin text-primary" /> Loading Sketch...</span></div>}>

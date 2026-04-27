@@ -6,33 +6,37 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.util.Base64;
+import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeActivity;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
-import android.os.Bundle;
-
 public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        SplashScreen.installSplashScreen(this);
         registerPlugin(FileSaverPlugin.class);
         super.onCreate(savedInstanceState);
         
-        // Low-End Device Optimizations for Android WebView
-        if (bridge != null && bridge.getWebView() != null) {
-            android.webkit.WebView webView = bridge.getWebView();
-            android.webkit.WebSettings settings = webView.getSettings();
-            
-            // Force hardware acceleration for the webview layer to offload CPU
-            webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
-            
-            // Disable background pre-rasterization to save massive amounts of RAM and CPU on low-end devices
-            settings.setOffscreenPreRaster(false);
-            
-            // Heavily cache content to reduce networking overhead on CPU/Radio
-            settings.setCacheMode(android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK);
+        try {
+            // Low-End Device Optimizations for Android WebView
+            if (bridge != null && bridge.getWebView() != null) {
+                android.webkit.WebView webView = bridge.getWebView();
+                android.webkit.WebSettings settings = webView.getSettings();
+                
+                // Force hardware acceleration for the webview layer to offload CPU
+                webView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+                
+                // Disable background pre-rasterization to save massive amounts of RAM and CPU on low-end devices
+                settings.setOffscreenPreRaster(false);
+                
+                // Heavily cache content to reduce networking overhead on CPU/Radio
+                settings.setCacheMode(android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
