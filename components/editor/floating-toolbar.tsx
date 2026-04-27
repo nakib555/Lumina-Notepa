@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   Bold, Italic, Underline, Strikethrough, Subscript, Superscript, 
   Quote, Code, Terminal, Link, Image, Minus, Table, List, ListOrdered, ListTodo, PenTool,
@@ -128,32 +128,42 @@ export const FloatingToolbar = ({
   const savedRangeRef = useRef<Range | null>(null);
   const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      if (document.activeElement === textareaRef.current || textareaRef.current?.contains(document.activeElement)) {
-        try {
-          setActiveFormats({
-            bold: document.queryCommandState('bold'),
-            italic: document.queryCommandState('italic'),
-            underline: document.queryCommandState('underline'),
-            strikethrough: document.queryCommandState('strikeThrough'),
-            subscript: document.queryCommandState('subscript'),
-            superscript: document.queryCommandState('superscript'),
-          });
-        } catch {
-           // ignore errors in unsupported browsers
-        }
+  const updateActiveFormats = useCallback(() => {
+    if (document.activeElement === textareaRef.current || textareaRef.current?.contains(document.activeElement)) {
+      try {
+        const formatBlock = document.queryCommandValue('formatBlock');
+        setActiveFormats({
+          bold: document.queryCommandState('bold'),
+          italic: document.queryCommandState('italic'),
+          underline: document.queryCommandState('underline'),
+          strikethrough: document.queryCommandState('strikeThrough'),
+          subscript: document.queryCommandState('subscript'),
+          superscript: document.queryCommandState('superscript'),
+          h1: formatBlock === 'h1' || formatBlock === 'H1',
+          h2: formatBlock === 'h2' || formatBlock === 'H2',
+          h3: formatBlock === 'h3' || formatBlock === 'H3',
+          quote: formatBlock === 'blockquote' || formatBlock === 'BLOCKQUOTE',
+          left: document.queryCommandState('justifyLeft'),
+          center: document.queryCommandState('justifyCenter'),
+          right: document.queryCommandState('justifyRight'),
+        });
+      } catch {
+         // ignore errors in unsupported browsers
       }
-    };
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+    }
   }, [textareaRef]);
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', updateActiveFormats);
+    return () => document.removeEventListener('selectionchange', updateActiveFormats);
+  }, [updateActiveFormats]);
 
   const [matchCount, setMatchCount] = useState(0);
 
   const handleApplyFormatting = (prefix: string, suffix?: string, toggle?: boolean) => {
     restoreSelection();
     applyFormatting(prefix, suffix, toggle);
+    setTimeout(updateActiveFormats, 10);
   };
 
   useEffect(() => {
@@ -942,7 +952,7 @@ export const FloatingToolbar = ({
           variant="ghost"
           size="icon"
           onClick={() => handleApplyFormatting('<div align="left">\n\n', '\n\n</div>')}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
+          className={cn("h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0", activeFormats.left && "bg-muted text-foreground")}
           title="Align Left"
           aria-label="Align Left"
         >
@@ -953,7 +963,7 @@ export const FloatingToolbar = ({
           variant="ghost"
           size="icon"
           onClick={() => handleApplyFormatting('<div align="center">\n\n', '\n\n</div>')}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
+          className={cn("h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0", activeFormats.center && "bg-muted text-foreground")}
           title="Align Center"
           aria-label="Align Center"
         >
@@ -964,7 +974,7 @@ export const FloatingToolbar = ({
           variant="ghost"
           size="icon"
           onClick={() => handleApplyFormatting('<div align="right">\n\n', '\n\n</div>')}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0"
+          className={cn("h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg shrink-0", activeFormats.right && "bg-muted text-foreground")}
           title="Align Right"
           aria-label="Align Right"
         >
@@ -1112,7 +1122,7 @@ export const FloatingToolbar = ({
           variant="ghost"
           size="icon"
           onClick={() => handleApplyFormatting("\n> ", "")}
-          className="h-8 w-8 text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 rounded-lg shrink-0"
+          className={cn("h-8 w-8 text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 rounded-lg shrink-0", activeFormats.quote && "bg-indigo-500/20 dark:bg-indigo-500/30 text-indigo-600 dark:text-indigo-400")}
           title="Quote"
         >
           <Quote className="w-4 h-4" />
@@ -1230,7 +1240,7 @@ export const FloatingToolbar = ({
           variant="ghost"
           size="icon"
           onClick={() => handleApplyFormatting("\n# ", "")}
-          className="h-8 w-8 text-violet-500 hover:text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 rounded-lg shrink-0"
+          className={cn("h-8 w-8 text-violet-500 hover:text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 rounded-lg shrink-0", activeFormats.h1 && "bg-violet-500/20 dark:bg-violet-500/30 text-violet-600 dark:text-violet-400")}
           title="Heading 1"
         >
           <Heading1 className="w-4 h-4" />
@@ -1240,7 +1250,7 @@ export const FloatingToolbar = ({
           variant="ghost"
           size="icon"
           onClick={() => handleApplyFormatting("\n## ", "")}
-          className="h-8 w-8 text-violet-500 hover:text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 rounded-lg shrink-0"
+          className={cn("h-8 w-8 text-violet-500 hover:text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 rounded-lg shrink-0", activeFormats.h2 && "bg-violet-500/20 dark:bg-violet-500/30 text-violet-600 dark:text-violet-400")}
           title="Heading 2"
         >
           <Heading2 className="w-4 h-4" />
@@ -1250,7 +1260,7 @@ export const FloatingToolbar = ({
           variant="ghost"
           size="icon"
           onClick={() => handleApplyFormatting("\n### ", "")}
-          className="h-8 w-8 text-violet-500 hover:text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 rounded-lg shrink-0"
+          className={cn("h-8 w-8 text-violet-500 hover:text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 rounded-lg shrink-0", activeFormats.h3 && "bg-violet-500/20 dark:bg-violet-500/30 text-violet-600 dark:text-violet-400")}
           title="Heading 3"
         >
           <Heading3 className="w-4 h-4" />

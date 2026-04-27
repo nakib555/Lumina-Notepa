@@ -18,6 +18,9 @@ import { ImageEditDialog } from './image-edit-dialog';
 import markedKatex from 'marked-katex-extension';
 import 'katex/dist/katex.min.css';
 import { cn } from "@/lib/utils";
+import { PenTool, Loader2 } from 'lucide-react';
+
+const SketchDialog = React.lazy(() => import('./sketch-dialog').then(module => ({ default: module.SketchDialog })));
 
 const CARET_MARKER = '%%%%CARETMARKER%%%%';
 
@@ -268,7 +271,10 @@ export const EditorArea = ({
   const [imageRect, setImageRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
   const [isImageEditDialogOpen, setIsImageEditDialogOpen] = useState(false);
 
-  
+  const [hoveredSketch, setHoveredSketch] = useState<HTMLElement | null>(null);
+  const [sketchRect, setSketchRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
+  const [isSketchEditDialogOpen, setIsSketchEditDialogOpen] = useState(false);
+
   const [hoveredLink, setHoveredLink] = useState<HTMLAnchorElement | null>(null);
   const [linkRect, setLinkRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
   
@@ -329,6 +335,20 @@ export const EditorArea = ({
     });
   }, []);
 
+  const updateSketchRect = useCallback((sketch: HTMLElement) => {
+    if (!previewRef.current || !previewRef.current.parentElement) return;
+    if (!sketch || !sketch.getBoundingClientRect) return;
+    const sRect = sketch.getBoundingClientRect();
+    const parentRect = previewRef.current.parentElement.getBoundingClientRect();
+    
+    setSketchRect(prev => {
+      const top = sRect.top - parentRect.top;
+      const left = sRect.left - parentRect.left;
+      if (prev && Math.abs(prev.top - top) < 1 && Math.abs(prev.left - left) < 1 && prev.width === sRect.width && prev.height === sRect.height) return prev;
+      return { top, left, width: sRect.width, height: sRect.height };
+    });
+  }, []);
+
   const updateImageRect = useCallback((img: HTMLImageElement) => {
     if (!previewRef.current || !previewRef.current.parentElement) return;
     if (!img || !img.getBoundingClientRect) return;
@@ -361,14 +381,15 @@ export const EditorArea = ({
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (isTableEditDialogOpen || isImageEditDialogOpen) return;
+      if (isTableEditDialogOpen || isImageEditDialogOpen || isSketchEditDialogOpen) return;
       if (!previewRef.current) return;
       
       const target = e.target as HTMLElement;
       const table = target.closest('table');
-      const img = target.closest('img');
+      const sketch = target.closest('.sketch-container') as HTMLElement | null;
+      const img = sketch ? null : target.closest('img');
       const link = target.closest('a');
-      const isHoveringToolbar = target.closest('.table-floating-toolbar') || target.closest('.image-floating-toolbar') || target.closest('.link-floating-toolbar') || target.closest('[role="dialog"]');
+      const isHoveringToolbar = target.closest('.table-floating-toolbar') || target.closest('.image-floating-toolbar') || target.closest('.sketch-floating-toolbar') || target.closest('.link-floating-toolbar') || target.closest('[role="dialog"]');
       
       // Inside table checking
       if (table && previewRef.current.contains(table) && !target.closest('.table-floating-toolbar')) {
@@ -379,6 +400,17 @@ export const EditorArea = ({
         if (hoveredTable !== table) setHoveredTable(table);
         updateTableRect(table);
         setHoveredImage(null);
+        setHoveredSketch(null);
+        setHoveredLink(null);
+      } else if (sketch && previewRef.current.contains(sketch) && !target.closest('.sketch-floating-toolbar')) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        if (hoveredSketch !== sketch) setHoveredSketch(sketch);
+        updateSketchRect(sketch);
+        setHoveredTable(null);
+        setHoveredImage(null);
         setHoveredLink(null);
       } else if (img && previewRef.current.contains(img) && !target.closest('.image-floating-toolbar')) {
         if (timeoutRef.current) {
@@ -388,6 +420,7 @@ export const EditorArea = ({
         if (hoveredImage !== img) setHoveredImage(img as HTMLImageElement);
         updateImageRect(img as HTMLImageElement);
         setHoveredTable(null);
+        setHoveredSketch(null);
         setHoveredLink(null);
       } else if (link && previewRef.current.contains(link) && !target.closest('.link-floating-toolbar')) {
         if (timeoutRef.current) {
@@ -397,6 +430,7 @@ export const EditorArea = ({
         if (hoveredLink !== link) setHoveredLink(link as HTMLAnchorElement);
         updateLinkRect(link as HTMLAnchorElement);
         setHoveredImage(null);
+        setHoveredSketch(null);
         setHoveredTable(null);
       } else if (isHoveringToolbar) {
         if (timeoutRef.current) {
@@ -404,10 +438,11 @@ export const EditorArea = ({
           timeoutRef.current = null;
         }
       } else {
-        if (!timeoutRef.current && (hoveredTable || hoveredImage || hoveredLink)) {
+        if (!timeoutRef.current && (hoveredTable || hoveredImage || hoveredSketch || hoveredLink)) {
           timeoutRef.current = setTimeout(() => {
             setHoveredTable(null);
             setHoveredImage(null);
+            setHoveredSketch(null);
             setHoveredLink(null);
             timeoutRef.current = null;
           }, 150);
@@ -420,7 +455,7 @@ export const EditorArea = ({
       window.removeEventListener('mousemove', handleMouseMove);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [hoveredTable, updateTableRect, isTableEditDialogOpen, hoveredImage, updateImageRect, isImageEditDialogOpen, hoveredLink, updateLinkRect]);
+  }, [hoveredTable, updateTableRect, isTableEditDialogOpen, hoveredImage, updateImageRect, isImageEditDialogOpen, hoveredSketch, updateSketchRect, isSketchEditDialogOpen, hoveredLink, updateLinkRect]);
 
   useEffect(() => {
     if (!hoveredTable) return;
@@ -447,6 +482,19 @@ export const EditorArea = ({
     observer.observe(hoveredImage);
     return () => observer.disconnect();
   }, [hoveredImage, updateImageRect]);
+
+  useEffect(() => {
+    if (!hoveredSketch) return;
+    
+    const observer = new ResizeObserver(() => {
+      window.requestAnimationFrame(() => {
+        if (hoveredSketch) updateSketchRect(hoveredSketch);
+      });
+    });
+    
+    observer.observe(hoveredSketch);
+    return () => observer.disconnect();
+  }, [hoveredSketch, updateSketchRect]);
 
   // Initialize turndown service once
   const turndownService = React.useMemo(() => {
@@ -568,7 +616,8 @@ export const EditorArea = ({
         return node.nodeType === 1 && node.nodeName === 'DIV' && (node as HTMLElement).classList.contains('sketch-container');
       },
       replacement: function (_content, node) {
-        return '\n\n' + (node as HTMLElement).outerHTML + '\n\n';
+        const safeHtml = (node as HTMLElement).outerHTML.replace(/\n *\n/g, '\n').replace(/\n/g, ' ');
+        return '\n\n' + safeHtml + '\n\n';
       }
     });
 
@@ -1424,8 +1473,20 @@ export const EditorArea = ({
       const range = sel.getRangeAt(0);
       const el = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer as Element;
       
-      // Do not auto-scroll if an image was clicked/selected
-      if (!(el && (el.tagName === 'IMG' || el.closest('figure') || el.closest('.image-wrapper') || el.closest('.code-block-wrapper')))) {
+      const isHoveringSpecial = !!document.querySelector('.image-wrapper:hover, img:hover, .sketch-container:hover, .code-block-wrapper:hover, table:hover');
+      const nodeAfter = range.startContainer.childNodes[range.startOffset];
+      const isBeforeSpecial = nodeAfter && nodeAfter.nodeType === Node.ELEMENT_NODE && 
+        (
+          (nodeAfter as Element).tagName === 'IMG' || 
+          (nodeAfter as Element).classList.contains('image-wrapper') ||
+          (nodeAfter as Element).classList.contains('sketch-container') ||
+          (nodeAfter as Element).classList.contains('code-block-wrapper') ||
+          (nodeAfter as Element).tagName === 'TABLE'
+        );
+      const isInsideSpecial = el && (el.tagName === 'IMG' || el.closest('figure') || el.closest('.image-wrapper') || el.closest('.code-block-wrapper') || el.closest('.sketch-container') || el.closest('table'));
+
+      // Do not auto-scroll if an image or special element was clicked/selected
+      if (!(isInsideSpecial || isBeforeSpecial || isHoveringSpecial)) {
         try {
           if (!range || !range.getBoundingClientRect) return;
           let rect = range.getBoundingClientRect();
@@ -1894,6 +1955,37 @@ export const EditorArea = ({
         table={hoveredTable}
         onConfirm={handleTableEditConfirm}
       />
+      {!isViewMode && hoveredSketch && sketchRect && (
+        <div 
+          className="sketch-floating-toolbar absolute z-50 flex items-center bg-background border border-border shadow-md rounded-lg overflow-hidden print:hidden animate-in fade-in zoom-in-95 duration-200"
+          style={{ 
+            top: sketchRect.top - 46, 
+            left: sketchRect.left,
+          }}
+        >
+          <button 
+            className="p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            title="Edit Sketch"
+            onClick={() => setIsSketchEditDialogOpen(true)}
+          >
+            <PenTool className="w-4 h-4" />
+          </button>
+          <div className="w-px h-4 bg-border" />
+          <button 
+            className="p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            title="Delete Sketch"
+            onClick={() => {
+              if (hoveredSketch && previewRef.current) {
+                hoveredSketch.remove();
+                setHoveredSketch(null);
+                flushPreviewEdit();
+              }
+            }}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       {!isViewMode && hoveredImage && imageRect && (
         <>
           <div 
@@ -1954,6 +2046,27 @@ export const EditorArea = ({
         image={hoveredImage}
         onConfirm={handleImageEditConfirm}
       />
+      
+      {isSketchEditDialogOpen && hoveredSketch && (
+        <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm"><span className="flex flex-col items-center gap-2 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin text-primary" /> Loading Sketch...</span></div>}>
+          <SketchDialog
+            isOpen={isSketchEditDialogOpen}
+            onClose={() => setIsSketchEditDialogOpen(false)}
+            initialStateString={hoveredSketch.getAttribute('data-excalidraw') || undefined}
+            onSave={(svgString, stateString) => {
+              const el = hoveredSketch as unknown as HTMLElement;
+              // eslint-disable-next-line react-hooks/immutability
+              el.innerHTML = svgString;
+              if (stateString) {
+                // eslint-disable-next-line react-hooks/immutability
+                el.setAttribute('data-excalidraw', stateString);
+              }
+              setIsSketchEditDialogOpen(false);
+              flushPreviewEdit();
+            }}
+          />
+        </React.Suspense>
+      )}
 
       <Dialog open={deletePromptInfo.isOpen} onOpenChange={(open) => !open && setDeletePromptInfo({ isOpen: false, targetRow: null, targetTable: null })}>
         <DialogContent className="sm:max-w-[425px]">

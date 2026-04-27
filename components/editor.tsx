@@ -10,12 +10,13 @@ import { useEditorHistory } from "./editor/use-editor-history";
 import { useEditorExport } from "./editor/use-editor-export";
 import { useEditorLogic } from "./editor/use-editor-logic";
 import { useDraggable } from "./editor/use-draggable";
-import { FileText, Menu, Plus } from "lucide-react";
+import { FileText, Menu, Plus, Check, PenTool, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { ImageInsertDialog } from "./editor/image-insert-dialog";
 import { LinkEditDialog } from "./editor/link-edit-dialog";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 const SketchDialog = lazy(() => import('./editor/sketch-dialog').then(module => ({ default: module.SketchDialog })));
 
@@ -52,6 +53,9 @@ export function Editor({
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showSketchDialog, setShowSketchDialog] = useState(false);
   const [hasLoadedSketch, setHasLoadedSketch] = useState(false);
+  const [pendingSketchSvg, setPendingSketchSvg] = useState<string | null>(null);
+  const [pendingSketchState, setPendingSketchState] = useState<string | null>(null);
+  const [showSketchConfirm, setShowSketchConfirm] = useState(false);
   const [initialLinkText, setInitialLinkText] = useState('');
   const [isAutoMarkdownEnabled, setIsAutoMarkdownEnabled] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -179,8 +183,25 @@ export function Editor({
     reader.readAsDataURL(file);
   };
 
-  const handleInsertSketch = (svgString: string) => {
-    if (textareaRef.current) {
+  const handleSketchDialogSave = (svgString: string, stateString?: string) => {
+    setPendingSketchSvg(svgString);
+    if (stateString) setPendingSketchState(stateString);
+    savedRangeRef.current = null;
+    toast.info("Click anywhere in the editor to place your sketch.", { duration: 4000 });
+  };
+
+  const handleEditorClickForSketch = () => {
+    if (pendingSketchSvg) {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+      }
+      setShowSketchConfirm(true);
+    }
+  };
+
+  const confirmInsertSketch = () => {
+    if (textareaRef.current && pendingSketchSvg) {
       textareaRef.current.focus();
       if (savedRangeRef.current) {
         const selection = window.getSelection();
@@ -188,14 +209,31 @@ export function Editor({
         selection?.addRange(savedRangeRef.current);
       }
       
-      const payload = `<div class="sketch-container my-4 inline-block w-full max-w-full overflow-hidden flex justify-center items-center p-4 bg-white dark:bg-zinc-100 rounded-xl border border-border/50 shadow-sm" contenteditable="false">${svgString}</div><p>&#8203;</p>`;
+      const stateAttr = pendingSketchState ? ` data-excalidraw='${pendingSketchState.replace(/'/g, "&apos;")}'` : '';
+      const payload = `<div class="sketch-container my-4 inline-block w-full max-w-full overflow-hidden flex justify-center items-center p-4 bg-white dark:bg-zinc-100 rounded-xl border border-border/50 shadow-sm" contenteditable="false"${stateAttr}>${pendingSketchSvg}&#8203;</div><p>&#8203;</p>`;
       document.execCommand('insertHTML', false, payload);
       
       if (editorAreaRef.current) {
         editorAreaRef.current.flushPreviewEdit();
       }
-      toast.success("Sketch inserted successfully");
+      setPendingSketchSvg(null);
+      setPendingSketchState(null);
+      setShowSketchConfirm(false);
+      savedRangeRef.current = null;
+      toast.success("Sketch inserted!");
     }
+  };
+
+  const reselectSketchLocation = () => {
+    setShowSketchConfirm(false);
+    savedRangeRef.current = null;
+    toast.info("Click anywhere in the editor to place your sketch.", { duration: 4000 });
+  };
+  
+  const cancelSketchPlacement = () => {
+    setPendingSketchSvg(null);
+    setShowSketchConfirm(false);
+    savedRangeRef.current = null;
   };
 
   const onUndo = useCallback(() => {
@@ -374,7 +412,10 @@ export function Editor({
             </div>
           )}
           
-          <div className="flex-1 mt-2">
+          <div 
+            className={cn("flex-1 mt-2 transition-all", pendingSketchSvg && !showSketchConfirm && "cursor-crosshair ring-2 ring-primary/50 ring-offset-2 rounded-xl border border-primary border-dashed p-2 bg-primary/5")}
+            onMouseUp={pendingSketchSvg && !showSketchConfirm ? handleEditorClickForSketch : undefined}
+          >
             <EditorArea 
               editorAreaRef={editorAreaRef}
               content={note.content}
@@ -469,14 +510,69 @@ export function Editor({
       />
 
       {hasLoadedSketch && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm"><span className="flex flex-col items-center gap-2 text-muted-foreground"><Loader2 className="w-8 h-8 animate-spin text-primary" /> Loading Sketch...</span></div>}>
           <SketchDialog 
             isOpen={showSketchDialog}
             onClose={() => setShowSketchDialog(false)}
-            onSave={handleInsertSketch}
+            onSave={handleSketchDialogSave}
           />
         </Suspense>
       )}
+
+      <Dialog open={showSketchConfirm} onOpenChange={(open) => !open && cancelSketchPlacement()}>
+        <DialogContent className="sm:max-w-md w-[calc(100vw-2rem)] mx-auto overflow-hidden p-0 border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl shadow-black/10 rounded-[1.5rem]">
+          <div className="p-5 sm:p-7 flex flex-col">
+            <DialogHeader className="mb-2 sm:mb-4 text-left">
+              <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2.5">
+                <span className="bg-primary/10 text-primary p-2 rounded-xl shadow-sm shadow-primary/5">
+                  <PenTool className="w-4 h-4 sm:w-5 sm:h-5" />
+                </span>
+                Place Your Sketch
+              </DialogTitle>
+              <DialogDescription className="text-sm sm:text-base mt-2 sm:mt-3 leading-relaxed">
+                Review the sketch preview below before inserting it at the selected location in your note.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="relative flex justify-center items-center p-4 sm:p-6 bg-muted/30 rounded-2xl border border-border/60 my-4 sm:my-6 overflow-hidden max-h-[30vh] sm:max-h-48 group">
+               <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] opacity-60" />
+               <div className="absolute inset-0 bg-gradient-to-t from-muted/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+               {pendingSketchSvg ? (
+                  <div dangerouslySetInnerHTML={{ __html: pendingSketchSvg }} className="relative z-10 w-full h-full max-h-full max-w-full drop-shadow-sm transition-transform duration-500 group-hover:scale-[1.02] [&>svg]:max-w-full [&>svg]:max-h-[25vh] sm:[&>svg]:max-h-40 [&>svg]:mx-auto" />
+               ) : (
+                  <span className="text-muted-foreground text-sm relative z-10 font-medium">No sketch found</span>
+               )}
+            </div>
+            
+            <DialogFooter className="flex w-full flex-col sm:flex-row gap-3 sm:gap-2 mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={reselectSketchLocation}
+                className="w-full sm:w-auto rounded-xl border-dashed hover:bg-muted/60 hover:text-foreground transition-colors h-11 sm:h-10 text-sm font-medium sm:mr-auto"
+              >
+                Reselect Location
+              </Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="w-full sm:w-auto rounded-xl hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors h-11 sm:h-10 text-sm font-medium" 
+                onClick={cancelSketchPlacement}
+              >
+                Discard
+              </Button>
+              <Button 
+                type="button" 
+                className="w-full sm:w-auto rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/25 transition-all active:scale-[0.98] h-11 sm:h-10 text-sm font-semibold" 
+                onClick={confirmInsertSketch}
+              >
+                <Check className="w-4 h-4 mr-1.5" />
+                Insert Sketch
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

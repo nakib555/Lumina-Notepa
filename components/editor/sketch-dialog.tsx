@@ -4,8 +4,7 @@ import "@excalidraw/excalidraw/index.css";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, PenTool, Maximize2, Minimize2, Check, X, Library, Download } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2, PenTool, Maximize2, Minimize2, Check, X, Library, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Set the path to load excalidraw assets (fonts) to fix the TypeError: Failed to fetch
@@ -17,7 +16,8 @@ if (typeof window !== "undefined") {
 interface SketchDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (svgString: string) => void;
+  onSave: (svgString: string, stateString?: string) => void;
+  initialStateString?: string;
 }
 
 interface ExcalidrawLibrary {
@@ -31,7 +31,7 @@ interface ExcalidrawLibrary {
   updated: string;
 }
 
-export function SketchDialog({ isOpen, onClose, onSave }: SketchDialogProps) {
+export function SketchDialog({ isOpen, onClose, onSave, initialStateString }: SketchDialogProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const excalidrawAPIRef = useRef<any>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -41,6 +41,13 @@ export function SketchDialog({ isOpen, onClose, onSave }: SketchDialogProps) {
   const [publicLibraries, setPublicLibraries] = useState<ExcalidrawLibrary[]>([]);
   const [isLoadingLibraries, setIsLoadingLibraries] = useState(false);
   const [installingLibraryId, setInstallingLibraryId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredLibraries = publicLibraries.filter(lib => 
+    lib.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    lib.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    lib.authors?.some(a => a.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const handleOpenLibraryBrowser = () => {
     setShowLibraryBrowser((prev) => !prev);
@@ -155,7 +162,8 @@ export function SketchDialog({ isOpen, onClose, onSave }: SketchDialogProps) {
       svg.style.display = "block";
       
       const svgString = svg.outerHTML;
-      onSave(svgString);
+      const stateString = JSON.stringify({ elements });
+      onSave(svgString, stateString);
       onClose();
     } catch (e) {
       console.error(e);
@@ -237,6 +245,7 @@ export function SketchDialog({ isOpen, onClose, onSave }: SketchDialogProps) {
           <div className="absolute inset-0 z-10 w-full h-full">
             {isOpen && (
               <Excalidraw
+                initialData={initialStateString ? JSON.parse(initialStateString) : undefined}
                 excalidrawAPI={(api) => { excalidrawAPIRef.current = api; }}
                 theme="light"
                 UIOptions={{
@@ -257,49 +266,72 @@ export function SketchDialog({ isOpen, onClose, onSave }: SketchDialogProps) {
           {/* Custom Public Library Browser Overlay */}
           {showLibraryBrowser && (
             <div className="absolute top-0 right-0 bottom-0 w-full sm:w-[400px] bg-background/95 backdrop-blur-md border-l shadow-2xl z-[100] flex flex-col pt-2 animate-in slide-in-from-right-full duration-300">
-              <div className="px-5 py-3 flex items-center justify-between border-b">
-                <h3 className="font-semibold text-foreground flex items-center">
-                  <Library className="w-4 h-4 mr-2 text-primary" />
-                  Public Libraries
-                </h3>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowLibraryBrowser(false)}>
-                  <X className="w-4 h-4" />
-                </Button>
+              <div className="px-5 py-3 flex flex-col gap-3 border-b shrink-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-foreground flex items-center">
+                    <Library className="w-4 h-4 mr-2 text-primary" />
+                    Public Libraries
+                  </h3>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setShowLibraryBrowser(false)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="relative group/search pb-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within/search:text-primary transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="Search libraries..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm bg-muted/40 border border-transparent focus:bg-background focus:border-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-sm focus:shadow-md focus:shadow-primary/5 focus:ring-0"
+                  />
+                </div>
               </div>
               
-              <ScrollArea className="flex-1 p-4">
+              <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
                 {isLoadingLibraries ? (
                   <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
                     <Loader2 className="w-8 h-8 animate-spin mb-4" />
                     <p className="text-sm">Loading libraries...</p>
                   </div>
+                ) : filteredLibraries.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                    <Search className="w-8 h-8 mb-4 opacity-50" />
+                    <p className="text-sm">No libraries found.</p>
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-4 pb-10">
-                    {publicLibraries.map((lib, index) => (
-                      <div key={lib.id || index} className="border rounded-xl bg-card overflow-hidden shadow-sm flex flex-col group">
-                        <div className="bg-muted aspect-video relative flex items-center justify-center p-4">
+                  <div className="grid grid-cols-1 gap-5 pb-10">
+                    {filteredLibraries.map((lib, index) => (
+                      <div key={lib.id || index} className="group flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm transition-all duration-300 hover:border-primary/40 hover:shadow-md">
+                        <div className="relative flex aspect-video items-center justify-center bg-muted/30 p-6 overflow-hidden">
+                          <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] opacity-50" />
                           <img 
                             src={`https://libraries.excalidraw.com/libraries/${lib.preview}`} 
                             alt={lib.name}
-                            className="max-w-full max-h-full object-contain filter drop-shadow-md"
+                            className="relative z-10 max-h-full max-w-full object-contain filter drop-shadow-sm transition-transform duration-500 group-hover:scale-105"
                             loading="lazy"
                           />
                         </div>
-                        <div className="p-4 flex flex-col flex-1">
-                          <h4 className="font-medium text-sm text-foreground line-clamp-1">{lib.name}</h4>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed flex-1">
+                        <div className="flex flex-1 flex-col p-5">
+                          <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">{lib.name}</h4>
+                          {lib.authors && lib.authors.length > 0 && (
+                            <p className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground mt-1 mb-2">
+                              By {lib.authors.map(a => a.name).join(', ')}
+                            </p>
+                          )}
+                          <p className="flex-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
                             {lib.description}
                           </p>
                           <Button 
-                            className="w-full mt-4 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-colors"
+                            className="mt-5 w-full rounded-xl bg-primary/10 text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground hover:shadow-md hover:shadow-primary/20 active:scale-[0.98]"
                             size="sm"
                             onClick={() => handleInstallLibrary(lib)}
                             disabled={installingLibraryId === lib.id}
                           >
                             {installingLibraryId === lib.id ? (
-                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Installing...</>
+                              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Installing...</>
                             ) : (
-                              <><Download className="w-4 h-4 mr-2" /> Add to Library</>
+                              <><Download className="mr-2 h-4 w-4" /> Add to Library</>
                             )}
                           </Button>
                         </div>
@@ -307,7 +339,7 @@ export function SketchDialog({ isOpen, onClose, onSave }: SketchDialogProps) {
                     ))}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </div>
           )}
         </div>
