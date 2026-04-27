@@ -35,7 +35,7 @@ public class MainActivity extends BridgeActivity {
                 // Heavily cache content to reduce networking overhead on CPU/Radio
                 settings.setCacheMode(android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK);
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             e.printStackTrace();
         }
     }
@@ -113,7 +113,7 @@ public class MainActivity extends BridgeActivity {
                             }, 4000);
                         });
                     }
-                } catch (Exception e) {
+                } catch (Throwable e) {
                     e.printStackTrace();
                 }
             }).start();

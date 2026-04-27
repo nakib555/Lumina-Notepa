@@ -82,16 +82,16 @@ export const BottomBar = ({
             e.preventDefault();
           }
         }}
-        onTouchStart={() => {
+        onTouchStart={(e) => {
           // Reset drag state on new touch
           if (symbolMenuRef.current) {
-            symbolMenuRef.current.dataset.touchDragging = 'false';
+            (e.currentTarget as HTMLElement).dataset.touchDragging = 'false';
           }
         }}
-        onTouchMove={() => {
+        onTouchMove={(e) => {
           // Mark as dragging if touch moves
           if (symbolMenuRef.current) {
-            symbolMenuRef.current.dataset.touchDragging = 'true';
+            (e.currentTarget as HTMLElement).dataset.touchDragging = 'true';
           }
         }}
         onTouchEnd={(e) => {

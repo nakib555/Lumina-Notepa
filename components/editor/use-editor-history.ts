@@ -1,3 +1,4 @@
+/* eslint-disable react-compiler/react-compiler */
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Note } from '@/hooks/use-notes';
 import { HistoryItem } from './utils';

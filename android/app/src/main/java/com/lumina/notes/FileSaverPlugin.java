@@ -67,7 +67,7 @@ public class FileSaverPlugin extends Plugin {
                             pendingData = "";
                             return;
                         }
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
                         call.reject("Error saving file: " + e.getMessage());
                         pendingData = "";
                         return;

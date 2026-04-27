@@ -1,10 +1,20 @@
 {
-	"appId": "com.lumina.notes",
-	"appName": "Lumina Notepad",
-	"webDir": "dist",
-	"plugins": {
-		"CapacitorHttp": {
-			"enabled": true
-		}
-	}
+  "appId": "com.lumina.notes",
+  "appName": "Lumina Notepad",
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true
+  }
 }

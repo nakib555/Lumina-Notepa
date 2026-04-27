@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.lumina.notes',
   appName: 'Lumina Notepad',
   webDir: 'dist',
-  plugins: {
+  server: { androidScheme: 'https', cleartext: true, allowNavigation: ['*'] }, android: { allowMixedContent: true }, plugins: {
     CapacitorHttp: {
       enabled: true,
     },

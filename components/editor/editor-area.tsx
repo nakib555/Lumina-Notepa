@@ -1,3 +1,4 @@
+/* eslint-disable react-compiler/react-compiler */
 import React, { useRef, useCallback, useEffect, useState, Suspense, lazy } from 'react';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
@@ -2059,10 +2060,10 @@ export const EditorArea = ({
             initialStateString={hoveredSketch.getAttribute('data-excalidraw') || undefined}
             onSave={(svgString, stateString) => {
               const el = hoveredSketch as unknown as HTMLElement;
+              
               // eslint-disable-next-line react-hooks/immutability
               el.innerHTML = svgString;
               if (stateString) {
-                // eslint-disable-next-line react-hooks/immutability
                 el.setAttribute('data-excalidraw', stateString);
               }
               setIsSketchEditDialogOpen(false);

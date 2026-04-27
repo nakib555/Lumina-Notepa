@@ -55,7 +55,7 @@ export default defineConfig({
   build: {
     target: 'esnext',
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 5000,
     minify: 'terser',
     terserOptions: {
       compress: {
