@@ -8,6 +8,18 @@ export interface Folder {
   createdAt: number;
 }
 
+export interface SmartFolderRule {
+  type: 'tag' | 'content' | 'title' | 'date';
+  operator: 'contains' | 'equals' | 'startsWith' | 'after' | 'before';
+  value: string;
+}
+
+export interface SmartFolder {
+  id: string;
+  name: string;
+  rules: SmartFolderRule[];
+}
+
 export interface Note {
   id: string;
   title: string;
@@ -15,6 +27,8 @@ export interface Note {
   tags: string[];
   folderId?: string;
   updatedAt: number;
+  reminderAt?: number;
+  date?: string; // YYYY-MM-DD for daily notes
 }
 
 export function useNotes() {
@@ -88,7 +102,7 @@ export function useNotes() {
 
   const activeNote = notes.find(n => n.id === activeNoteId) || null;
 
-  const createNote = (title?: string, content?: string, folderId?: string) => {
+  const createNote = (title?: string, content?: string, folderId?: string, metadata?: Partial<Note>) => {
     const newNote: Note = {
       id: uuidv4(),
       title: title || 'Untitled Note',
@@ -96,6 +110,7 @@ export function useNotes() {
       tags: [],
       folderId,
       updatedAt: Date.now(),
+      ...metadata
     };
     setNotes(prev => [newNote, ...prev]);
     setActiveNoteId(newNote.id);

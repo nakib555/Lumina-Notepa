@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { Note, Folder as CommonFolder } from '@/hooks/use-notes';
-import { ChevronRight, ChevronDown, Folder, Trash2, Download, Plus, Upload, MoreHorizontal, FileText, FileUp, Edit2, Lock, Unlock } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, Trash2, Download, Plus, Upload, MoreHorizontal, FileText, FileUp, Edit2, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -18,6 +18,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 interface FileTreeProps {
   notes: Note[];
@@ -72,6 +75,9 @@ export function SidebarFileTree({
   // Folder Delete State
   const [folderToDelete, setFolderToDelete] = useState<{id: string, name: string} | null>(null);
 
+  // Note Delete State
+  const [noteToDelete, setNoteToDelete] = useState<{id: string, title: string} | null>(null);
+
   const openDeleteFolderDialog = (folder: CommonFolder) => {
     setFolderToDelete({ id: folder.id, name: folder.name });
   };
@@ -81,6 +87,17 @@ export function SidebarFileTree({
       onDeleteFolder(folderToDelete.id);
     }
     setFolderToDelete(null);
+  };
+
+  const openDeleteNoteDialog = (note: Note) => {
+    setNoteToDelete({ id: note.id, title: note.title });
+  };
+
+  const handleDeleteNoteConfirm = () => {
+    if (noteToDelete) {
+      onDeleteNote(noteToDelete.id);
+    }
+    setNoteToDelete(null);
   };
 
   const handleCreateFolderSubmit = () => {
@@ -397,8 +414,60 @@ export function SidebarFileTree({
     };
 
     addToZip(folder.id, zip);
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const base64Content = await zip.generateAsync({ type: "base64" });
+        const fileName = `${folder.name}.zip`;
+        const writedFilePath = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Content,
+          directory: Directory.Cache
+        });
+        
+        const canShare = await Share.canShare();
+        if (canShare.value) {
+          await Share.share({
+             title: 'Export Zip',
+             text: `Save ${fileName}`,
+             url: writedFilePath.uri,
+             dialogTitle: 'Save Zip To...'
+          });
+        } else {
+           await Filesystem.writeFile({
+             path: fileName,
+             data: base64Content,
+             directory: Directory.Documents
+           });
+        }
+      } catch (err) {
+        console.error('Failed to save zip:', err);
+      }
+      return;
+    }
+
     const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, `${folder.name}.zip`);
+    
+    try {
+      if ('showSaveFilePicker' in window) {
+        const handle = await (window as unknown as { showSaveFilePicker: (options: unknown) => Promise<{ createWritable: () => Promise<{ write: (data: Blob) => Promise<void>, close: () => Promise<void> }> }> }).showSaveFilePicker({
+           suggestedName: `${folder.name}.zip`,
+           types: [{
+             description: 'ZIP Archive',
+             accept: { 'application/zip': ['.zip'] },
+           }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+      } else {
+        saveAs(content, `${folder.name}.zip`);
+      }
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'name' in err && err.name !== 'AbortError') {
+        saveAs(content, `${folder.name}.zip`);
+      }
+    }
   };
 
   const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -500,7 +569,12 @@ export function SidebarFileTree({
     return "";
   };
 
-  const renderNote = (note: Note, level = 0) => (
+  const renderNote = (note: Note, level = 0) => {
+    const text = note.content;
+    const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+    const readingTime = Math.ceil(words / 200);
+    
+    return (
     <div
       key={note.id}
       draggable={!isDndLocked}
@@ -510,7 +584,7 @@ export function SidebarFileTree({
       onDragLeave={!isDndLocked ? handleDragLeave : undefined}
       onDrop={(e) => !isDndLocked && handleDrop(e, note.id, 'note')}
       className={cn(
-        "group flex items-center justify-between py-1.5 px-2 rounded-lg transition-all duration-200 border-none select-none mx-1 my-0.5",
+        "group flex flex-col justify-center py-1.5 px-2 rounded-lg transition-all duration-200 border-none select-none mx-1 my-0.5",
         isDndLocked ? "cursor-pointer" : "cursor-grab active:cursor-grabbing hover:scale-[0.99]",
         getDragStyle(note.id),
         activeNoteId === note.id 
@@ -520,30 +594,38 @@ export function SidebarFileTree({
       style={{ paddingLeft: `${ level * 12 + 28 }px` }} // Aligns nicely past the Chevron and Folder icon
       onClick={() => onSelectNote(note.id)}
     >
-      <div className="flex items-center gap-2 overflow-hidden w-full pointer-events-none">
-        <span className="text-muted-foreground shrink-0 w-3.5 h-3.5 flex items-center justify-center transition-transform group-hover:scale-110">
-            <span className={cn("rounded-full transition-all duration-300", activeNoteId === note.id ? "w-2 h-2 bg-primary shadow-[0_0_8px_hsl(var(--primary))]" : "w-1.5 h-1.5 bg-primary/30 group-hover:bg-primary/50")} />
-        </span>
-        <span className={cn(
-          "text-sm truncate mr-2 w-full transition-colors",
-          activeNoteId === note.id ? "text-primary font-medium" : "font-medium text-foreground/80 group-hover:text-foreground"
-        )}>
-          {note.title || "Untitled Note"}
+      <div className="flex items-center justify-between overflow-hidden w-full pointer-events-none">
+        <div className="flex items-center gap-2 overflow-hidden w-full">
+          <span className="text-muted-foreground shrink-0 w-3.5 h-3.5 flex items-center justify-center transition-transform group-hover:scale-110">
+              <FileText className={cn("w-3.5 h-3.5 transition-colors", activeNoteId === note.id ? "text-primary drop-shadow-[0_0_4px_rgba(var(--primary),0.3)]" : "text-foreground/40 group-hover:text-foreground/70")} />
+          </span>
+          <span className={cn(
+            "text-sm truncate mr-2 transition-colors",
+            activeNoteId === note.id ? "text-primary font-medium" : "font-medium text-foreground/80 group-hover:text-foreground"
+          )}>
+            {note.title || "Untitled Note"}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="opacity-0 group-hover:opacity-100 h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive transition-all pointer-events-auto"
+          onClick={(e) => {
+            e.stopPropagation();
+            openDeleteNoteDialog(note);
+          }}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+      <div className="pl-[22px] flex items-center gap-2 mt-0.5 pointer-events-none">
+        <span className="text-[10px] text-muted-foreground/60 font-medium">
+          {words} {words === 1 ? 'word' : 'words'} • {readingTime} min read
         </span>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="opacity-0 group-hover:opacity-100 h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive transition-all"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDeleteNote(note.id);
-        }}
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </Button>
     </div>
   );
+  };
 
   const renderFolder = (folder: CommonFolder, level = 0) => {
     const isExpanded = expandedFolders.has(folder.id);
@@ -834,19 +916,48 @@ export function SidebarFileTree({
       <Dialog open={!!folderToDelete} onOpenChange={(open) => !open && setFolderToDelete(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Folder</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              Delete Folder
+            </DialogTitle>
           </DialogHeader>
-          <div className="py-4 text-sm text-foreground">
-            Are you sure you want to delete the folder <strong>{folderToDelete?.name}</strong>?
-            <br />
-            <span className="text-destructive font-medium">All nested folders and notes will be deleted as well.</span>
+          <div className="py-2 text-sm text-muted-foreground">
+            Are you sure you want to delete <strong className="text-foreground">{folderToDelete?.name}</strong>?
+            <div className="mt-2 text-destructive p-3 bg-destructive/10 rounded-md border border-destructive/20 font-medium">
+              This action cannot be undone. All nested folders and notes will be permanently deleted.
+            </div>
           </div>
-          <DialogFooter className="sm:justify-end">
+          <DialogFooter className="sm:justify-end gap-2 mt-2">
             <Button type="button" variant="ghost" onClick={() => setFolderToDelete(null)}>
               Cancel
             </Button>
             <Button type="button" variant="destructive" onClick={handleDeleteFolderConfirm}>
-              Delete
+              Delete Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Note Delete Dialog */}
+      <Dialog open={!!noteToDelete} onOpenChange={(open) => !open && setNoteToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              Delete Note
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 text-sm text-muted-foreground">
+            Are you sure you want to delete <strong className="text-foreground">{noteToDelete?.title || 'Untitled Note'}</strong>?
+            <div className="mt-2 text-destructive p-3 bg-destructive/10 rounded-md border border-destructive/20 font-medium">
+              This action cannot be undone. The note will be permanently deleted.
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end gap-2 mt-2">
+            <Button type="button" variant="ghost" onClick={() => setNoteToDelete(null)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={handleDeleteNoteConfirm}>
+              Delete Note
             </Button>
           </DialogFooter>
         </DialogContent>

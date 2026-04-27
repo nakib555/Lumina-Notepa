@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { 
   Bold, Italic, Underline, Strikethrough, Subscript, Superscript, 
-  Quote, Code, Terminal, Link, Image, Minus, Table, List, ListOrdered, ListTodo,
+  Quote, Code, Terminal, Link, Image, Minus, Table, List, ListOrdered, ListTodo, PenTool,
   Heading1, Heading2, Heading3, Sigma, MousePointer2, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Scissors, Copy, ClipboardPaste, X, Eraser,
   AlignLeft, AlignCenter, AlignRight, Wand2, Bookmark, ChevronLeft, ChevronRight, Search, ChevronDown, ChevronUp, CornerDownRight
 } from "lucide-react";
@@ -28,6 +28,7 @@ interface FloatingToolbarProps {
   onToggleSymbolMenu: () => void;
   onInsertImageClick: () => void;
   onInsertLinkClick: () => void;
+  onInsertSketchClick?: () => void;
   textareaRef: React.RefObject<HTMLDivElement | null>;
   isAutoMarkdownEnabled: boolean;
   setIsAutoMarkdownEnabled: (enabled: boolean) => void;
@@ -111,6 +112,7 @@ export const FloatingToolbar = ({
   onToggleSymbolMenu,
   onInsertImageClick,
   onInsertLinkClick,
+  onInsertSketchClick,
   textareaRef,
   isAutoMarkdownEnabled,
   setIsAutoMarkdownEnabled,
@@ -355,27 +357,35 @@ export const FloatingToolbar = ({
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     const range = selection.getRangeAt(0);
+    if (!range || !range.getBoundingClientRect) return;
     let rect = range.getBoundingClientRect();
     
-    if (rect.width === 0 && rect.height === 0) {
+    if (rect.width === 0 || rect.height === 0) {
       const span = document.createElement('span');
       span.textContent = '\u200b';
-      range.insertNode(span);
-      rect = span.getBoundingClientRect();
-      if (span.parentNode) span.parentNode.removeChild(span);
+      try {
+        const cloneRange = range.cloneRange();
+        cloneRange.insertNode(span);
+        rect = span.getBoundingClientRect();
+        span.remove();
+      } catch {
+        // Fallback
+      }
     }
     
     if (rect.top === 0 && rect.bottom === 0) return;
     
     const scrollContainer = textareaRef.current?.closest('.overflow-y-auto') as HTMLElement;
     if (scrollContainer) {
+      if (!scrollContainer.getBoundingClientRect) return;
       const containerRect = scrollContainer.getBoundingClientRect();
-      if (forceCenter || rect.top < containerRect.top || rect.bottom > containerRect.bottom) {
-        const cursorY = rect.top + (rect.height / 2) - containerRect.top;
-        const targetY = containerRect.height / 2;
-        scrollContainer.scrollBy({
-          top: cursorY - targetY,
-          behavior: 'smooth'
+      if (forceCenter || rect.top < containerRect.top + 50 || rect.bottom > containerRect.bottom - 50) {
+        const absoluteTop = rect.top + scrollContainer.scrollTop - containerRect.top;
+        const targetScrollTop = absoluteTop - (containerRect.height / 2) + (rect.height / 2);
+        
+        scrollContainer.scrollTo({
+          top: targetScrollTop,
+          behavior: 'auto'
         });
       }
     }
@@ -578,9 +588,9 @@ export const FloatingToolbar = ({
       currentIndex = direction === 'next' ? 0 : marks.length - 1;
     }
     
-    // Smooth scroll and focus
+    // Auto scroll and focus
     const targetMark = marks[currentIndex] as HTMLElement;
-    targetMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetMark.scrollIntoView({ behavior: 'auto', block: 'center' });
     
     // Give time for scroll to settle, then set focus
     setTimeout(() => {
@@ -1146,6 +1156,16 @@ export const FloatingToolbar = ({
           title="Image"
         >
           <Image className="w-4 h-4" />
+        </Button>
+        <Button
+          onPointerDown={(e) => e.preventDefault()}
+          variant="ghost"
+          size="icon"
+          onClick={onInsertSketchClick}
+          className="h-8 w-8 text-teal-500 hover:text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 rounded-lg shrink-0"
+          title="Sketch"
+        >
+          <PenTool className="w-4 h-4" />
         </Button>
       </div>
 

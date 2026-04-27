@@ -259,7 +259,7 @@ export function ImageEditDialog({ isOpen, onClose, image, onConfirm }: ImageEdit
 
           <TabsContent value="resize" className="space-y-4 mt-4">
             <div className="space-y-4">
-              <div className="flex flex-col items-center justify-center border border-border rounded-lg p-4 bg-muted/30 overflow-hidden min-h-[200px]">
+              <div className="flex flex-col items-center justify-center border border-border rounded-lg p-4 bg-muted/30 overflow-y-auto custom-scrollbar min-h-[200px]">
                 {imgSrc ? (
                   <div className="relative group inline-block">
                     <img
@@ -376,7 +376,7 @@ export function ImageEditDialog({ isOpen, onClose, image, onConfirm }: ImageEdit
                 <strong>Note:</strong> This is an external image. Cropping might fail due to browser security restrictions (CORS).
               </div>
             )}
-            <div className="flex flex-col items-center justify-center border border-border rounded-lg p-2 bg-muted/30 overflow-hidden max-h-[400px]">
+            <div className="flex flex-col items-center justify-center border border-border rounded-lg p-2 bg-muted/30 overflow-y-auto custom-scrollbar max-h-[400px]">
               {imgSrc ? (
                 <ReactCrop
                   crop={crop}

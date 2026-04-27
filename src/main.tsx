@@ -10,11 +10,12 @@ import { registerSW } from 'virtual:pwa-register';
 
 // Polyfill for HTML5 Drag and Drop on Touch Devices (Mobile/Capacitor)
 import { polyfill } from "mobile-drag-drop";
+import { scrollBehaviourDragImageTranslateOverride } from "mobile-drag-drop/scroll-behaviour";
 import "mobile-drag-drop/default.css";
 
 // Initialize polyfill immediately
 polyfill({
-  dragImageTranslateOverride: "scrollBehavior", // Ensures drag image follows native scroll
+  dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride,
 });
 
 // To ensure scroll still works alongside dragging, we disable passive touchmove 
@@ -34,7 +35,7 @@ if ('serviceWorker' in navigator) {
               .then(keys => Promise.all(keys.map(key => caches.delete(key))))
               .then(() => window.location.reload());
           } else {
-            window.location.reload();
+            location.reload();
           }
         });
       }

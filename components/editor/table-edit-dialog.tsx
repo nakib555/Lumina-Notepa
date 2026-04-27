@@ -320,7 +320,7 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
           </DialogHeader>
         </div>
 
-        <div className="px-6 pt-4 bg-background flex flex-col md:flex-row gap-6 overflow-y-auto flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="px-6 pt-4 bg-background flex flex-col md:flex-row gap-6 overflow-y-auto flex-1 custom-scrollbar">
           <div className="w-full md:w-1/2 flex flex-col order-2 md:order-1">
             <Tabs defaultValue="dimensions" className="w-full pb-2 flex-1">
               <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -482,7 +482,7 @@ export const TableEditDialog = ({ isOpen, onClose, table, onConfirm }: TableEdit
               <div className="border border-border/50 rounded-xl p-4 bg-muted/20 overflow-hidden relative group flex flex-col">
                 <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none" onClick={() => setSelectedCell(null)}></div>
                 
-                <div className={`relative z-10 bg-background/80 backdrop-blur-md shadow-sm overflow-x-auto overflow-y-auto max-h-[164px] w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${isRounded ? `rounded-table ${previewCurveClass} border border-border` : ''}`}>
+                <div className={`relative z-10 bg-background/80 backdrop-blur-md shadow-sm overflow-x-auto overflow-y-auto max-h-[164px] w-full custom-scrollbar ${isRounded ? `rounded-table ${previewCurveClass} border border-border` : ''}`}>
                   <table id="table-settings-preview" className={`w-full border-collapse ${isRounded ? 'border-0' : 'border border-border/50'}`}>
                     <thead className="relative z-20">
                       <tr>

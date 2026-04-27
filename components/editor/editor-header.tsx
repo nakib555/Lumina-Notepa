@@ -5,6 +5,7 @@ import {
   Eye, Edit3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface EditorHeaderProps {
   onToggleSidebar: () => void;
@@ -45,10 +46,13 @@ export const EditorHeader = ({
   saveStatus,
   downloadLogs,
   isViewMode,
-  setIsViewMode
+  setIsViewMode,
 }: EditorHeaderProps) => {
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background/80 backdrop-blur-md z-10 print:hidden">
+    <header className={cn(
+      "h-14 border-b border-border flex items-center justify-between px-2 sm:px-4 shrink-0 bg-background/80 backdrop-blur-md z-10 print:hidden transition-opacity duration-500",
+      "opacity-100"
+    )}>
       <div className="flex items-center gap-1 sm:gap-2 py-1 shrink-0">
         <Button 
           variant="ghost" 
@@ -242,16 +246,30 @@ export const EditorHeader = ({
           )}
         </div>
 
-        <span className="text-sm font-medium text-muted-foreground hidden sm:inline-block" aria-live="polite">
-          {stats.words} words {'\u2022'} {stats.chars} chars {'\u2022'} {stats.readingTime} min read
-        </span>
-        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground" aria-live="polite">
+        <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 bg-muted/50 rounded-lg text-xs font-medium text-muted-foreground transition-colors hover:text-foreground shrink-0 cursor-default">
+          <span className="flex items-center gap-1.5" title="Word Count">
+            <span className="opacity-70 font-semibold">{stats.words}</span>
+            <span className="hidden sm:inline">words</span>
+            <span className="sm:hidden">w</span>
+          </span>
+          <div className="w-px h-3 bg-border" aria-hidden="true" />
+          <span className="flex items-center gap-1.5" title="Reading Time">
+            <span className="opacity-70 font-semibold">{stats.readingTime}</span>
+            <span className="hidden sm:inline">min read</span>
+            <span className="sm:hidden">m</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground shrink-0" aria-live="polite">
           {saveStatus === "saving" ? (
-            <span className="animate-pulse">Saving...</span>
+             <span className="flex items-center gap-1 text-yellow-500 animate-pulse" title="Saving...">
+               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+               <span className="hidden sm:inline">Saving...</span>
+             </span>
           ) : (
-            <span className="flex items-center gap-1 text-emerald-500">
-              <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> Autosaved
-            </span>
+             <span className="flex items-center gap-1 text-emerald-500" title="Autosaved">
+               <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+               <span className="hidden sm:inline">Autosaved</span>
+             </span>
           )}
         </div>
       </div>

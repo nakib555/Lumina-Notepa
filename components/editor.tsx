@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense, lazy } from "react";
+import TextareaAutosize from 'react-textarea-autosize';
 import { Note } from "@/hooks/use-notes";
 import { EditorHeader } from "./editor/editor-header";
 import { BottomBar } from "./editor/bottom-bar";
@@ -15,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { ImageInsertDialog } from "./editor/image-insert-dialog";
 import { LinkEditDialog } from "./editor/link-edit-dialog";
 import { toast } from "sonner";
+
+const SketchDialog = lazy(() => import('./editor/sketch-dialog').then(module => ({ default: module.SketchDialog })));
 
 interface EditorProps {
   note: Note | null;
@@ -47,6 +50,8 @@ export function Editor({
   const [showSymbolMenu, setShowSymbolMenu] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showSketchDialog, setShowSketchDialog] = useState(false);
+  const [hasLoadedSketch, setHasLoadedSketch] = useState(false);
   const [initialLinkText, setInitialLinkText] = useState('');
   const [isAutoMarkdownEnabled, setIsAutoMarkdownEnabled] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -90,7 +95,7 @@ export function Editor({
     downloadLogs
   } = useEditorExport(note);
 
-  const { applyFormatting, applyFontSize, clearFormatting } = useEditorFormatting(
+  const { applyFormatting, applyFontSize } = useEditorFormatting(
     note,
     onUpdateNote,
     textareaRef
@@ -112,7 +117,7 @@ export function Editor({
     handleMouseMove: handleSymbolMouseMove
   } = useDraggable(symbolScrollRef);
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (isViewMode) return;
     const newTitle = e.target.value;
     onUpdateNote(note!.id, { title: newTitle });
@@ -174,6 +179,25 @@ export function Editor({
     reader.readAsDataURL(file);
   };
 
+  const handleInsertSketch = (svgString: string) => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      if (savedRangeRef.current) {
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(savedRangeRef.current);
+      }
+      
+      const payload = `<div class="sketch-container my-4 inline-block w-full max-w-full overflow-hidden flex justify-center items-center p-4 bg-white dark:bg-zinc-100 rounded-xl border border-border/50 shadow-sm" contenteditable="false">${svgString}</div><p>&#8203;</p>`;
+      document.execCommand('insertHTML', false, payload);
+      
+      if (editorAreaRef.current) {
+        editorAreaRef.current.flushPreviewEdit();
+      }
+      toast.success("Sketch inserted successfully");
+    }
+  };
+
   const onUndo = useCallback(() => {
     let currentContent: string | undefined = undefined;
     if (editorAreaRef.current) {
@@ -183,11 +207,10 @@ export function Editor({
   }, [handleUndo]);
 
   const onRedo = useCallback(() => {
-    let currentContent: string | undefined = undefined;
     if (editorAreaRef.current) {
-      currentContent = editorAreaRef.current.flushPreviewEdit();
+      editorAreaRef.current.flushPreviewEdit();
     }
-    handleRedo(currentContent);
+    handleRedo();
   }, [handleRedo]);
 
   // Keyboard shortcuts for Undo/Redo and outside clicks
@@ -286,21 +309,20 @@ export function Editor({
       />
 
       {/* Editor Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar print:overflow-visible print:bg-white print:text-black flex">
-        <div className="flex-1 w-full min-w-0 max-w-full px-8 pt-10 pb-24 md:px-12 md:pt-16 md:pb-32 print:p-0 flex flex-col gap-8 min-h-full">
-          <div className="space-y-6 shrink-0">
-            <input
-              type="text"
-              value={note.title}
-              onChange={handleTitleChange}
-              placeholder="Note Title"
-              autoComplete="off"
-              readOnly={isViewMode}
-              className={cn("w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight print:text-black print:text-center", isViewMode && "cursor-default")}
-            />
-            
-            {/* Tag Management */}
-            {!isViewMode && (
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar print:overflow-visible print:bg-white print:text-black flex justify-center">
+        <div className="flex-1 w-full max-w-4xl px-8 pt-10 pb-24 md:px-12 md:pt-16 md:pb-32 print:p-0 flex flex-col gap-8 min-h-full">
+          <TextareaAutosize
+            value={note.title}
+            onChange={handleTitleChange}
+            placeholder="Note Title"
+            autoComplete="off"
+            readOnly={isViewMode}
+            className={cn("w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight print:text-black print:text-center resize-none p-0 m-0 leading-tight shrink-0", isViewMode && "cursor-default")}
+          />
+          
+          {/* Tag Management */}
+          {!isViewMode && (
+            <div className="shrink-0 flex justify-center w-full">
               <MetadataBar 
                 note={note}
                 tagInput={tagInput}
@@ -311,75 +333,125 @@ export function Editor({
                 folderInput={folderInput}
                 setFolderInput={setFolderInput}
                 updateFolder={updateFolder}
+                onVoiceRecorded={(base64Audio, _duration, mimeType) => {
+                   const src = `data:${mimeType};base64,${base64Audio}`;
+                   if (textareaRef.current) {
+                      textareaRef.current.focus();
+                      if (savedRangeRef.current) {
+                        const selection = window.getSelection();
+                        selection?.removeAllRanges();
+                        selection?.addRange(savedRangeRef.current);
+                      }
+                      const audioTag = `<audio controls src="${src}"></audio><p>&#8203;</p>`;
+                      document.execCommand('insertHTML', false, audioTag);
+                      if (editorAreaRef.current) {
+                        editorAreaRef.current.flushPreviewEdit();
+                      }
+                   }
+                }}
+                onSetReminder={(schedTime) => {
+                   onUpdateNote(note.id, { reminderAt: schedTime.getTime() });
+                   toast.success(`Reminder set for ${schedTime.toLocaleTimeString()}`);
+                   // Actual capacitor notification schedule
+                   import('@capacitor/local-notifications').then(async ({ LocalNotifications }) => {
+                      const perm = await LocalNotifications.checkPermissions();
+                      if (perm.display !== 'granted') {
+                         await LocalNotifications.requestPermissions();
+                      }
+                      LocalNotifications.schedule({
+                        notifications: [
+                          {
+                            title: `Reminder: ${note.title}`,
+                            body: 'Time to check your note!',
+                            id: Math.floor(Math.random() * 100000),
+                            schedule: { at: schedTime }
+                          }
+                        ]
+                      }).catch(err => console.error("Could not schedule notification:", err));
+                   }).catch(err => console.error(err));
+                }}
               />
-            )}
-          </div>
+            </div>
+          )}
           
-          <EditorArea 
-            editorAreaRef={editorAreaRef}
-            content={note.content}
-            theme={theme}
-            handleContentChange={handleContentChange}
-            handleDrop={handleDrop}
-            handleDragOver={handleDragOver}
-            noteId={note.id}
-            textareaRef={textareaRef}
-            isAutoMarkdownEnabled={isAutoMarkdownEnabled}
-            isViewMode={isViewMode}
-            isEraserMode={isEraserMode}
-          />
+          <div className="flex-1 mt-2">
+            <EditorArea 
+              editorAreaRef={editorAreaRef}
+              content={note.content}
+              theme={theme}
+              handleContentChange={handleContentChange}
+              handleDrop={handleDrop}
+              handleDragOver={handleDragOver}
+              noteId={note.id}
+              textareaRef={textareaRef}
+              isAutoMarkdownEnabled={isAutoMarkdownEnabled}
+              isViewMode={isViewMode}
+              isEraserMode={isEraserMode}
+            />
+          </div>
         </div>
       </div>
 
       {/* Bottom Formatting Bar */}
       {!isViewMode && (
-        <BottomBar 
-          symbolMenuRef={symbolMenuRef}
-          showSymbolMenu={showSymbolMenu}
-          setShowSymbolMenu={setShowSymbolMenu}
-          symbolScrollRef={symbolScrollRef}
-          handleSymbolMouseDown={handleSymbolMouseDown}
-          handleSymbolMouseLeave={handleSymbolMouseLeave}
-          handleSymbolMouseUp={handleSymbolMouseUp}
-          handleSymbolMouseMove={handleSymbolMouseMove}
-          isSymbolDragging={isSymbolDragging}
-          applyFormatting={applyFormatting}
-          toolbarRef={toolbarRef}
-          isDragging={isDragging}
-          handleMouseDown={handleMouseDown}
-          handleMouseLeave={handleMouseLeave}
-          handleMouseUp={handleMouseUp}
-          handleMouseMove={handleMouseMove}
-          fontFamily={fontFamily}
-          onFontFamilyChange={onFontFamilyChange}
-          applyFontSize={applyFontSize}
-          clearFormatting={clearFormatting}
-          isEraserMode={isEraserMode}
-          setIsEraserMode={setIsEraserMode}
-          textareaRef={textareaRef}
-          isAutoMarkdownEnabled={isAutoMarkdownEnabled}
-          setIsAutoMarkdownEnabled={setIsAutoMarkdownEnabled}
-          onInsertImageClick={() => {
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-              savedRangeRef.current = selection.getRangeAt(0).cloneRange();
-            } else {
-              savedRangeRef.current = null;
-            }
-            setShowImageDialog(true);
-          }}
-          onInsertLinkClick={() => {
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-              savedRangeRef.current = selection.getRangeAt(0).cloneRange();
-              setInitialLinkText(selection.toString());
-            } else {
-              savedRangeRef.current = null;
-              setInitialLinkText('');
-            }
-            setShowLinkDialog(true);
-          }}
-        />
+        <div>
+          <BottomBar 
+            symbolMenuRef={symbolMenuRef}
+            showSymbolMenu={showSymbolMenu}
+            setShowSymbolMenu={setShowSymbolMenu}
+            symbolScrollRef={symbolScrollRef}
+            handleSymbolMouseDown={handleSymbolMouseDown}
+            handleSymbolMouseLeave={handleSymbolMouseLeave}
+            handleSymbolMouseUp={handleSymbolMouseUp}
+            handleSymbolMouseMove={handleSymbolMouseMove}
+            isSymbolDragging={isSymbolDragging}
+            applyFormatting={applyFormatting}
+            toolbarRef={toolbarRef}
+            isDragging={isDragging}
+            handleMouseDown={handleMouseDown}
+            handleMouseLeave={handleMouseLeave}
+            handleMouseUp={handleMouseUp}
+            handleMouseMove={handleMouseMove}
+            fontFamily={fontFamily}
+            onFontFamilyChange={onFontFamilyChange}
+            applyFontSize={applyFontSize}
+            isEraserMode={isEraserMode}
+            setIsEraserMode={setIsEraserMode}
+            textareaRef={textareaRef}
+            isAutoMarkdownEnabled={isAutoMarkdownEnabled}
+            setIsAutoMarkdownEnabled={setIsAutoMarkdownEnabled}
+            onInsertImageClick={() => {
+              const selection = window.getSelection();
+              if (selection && selection.rangeCount > 0) {
+                savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+              } else {
+                savedRangeRef.current = null;
+              }
+              setShowImageDialog(true);
+            }}
+            onInsertLinkClick={() => {
+              const selection = window.getSelection();
+              if (selection && selection.rangeCount > 0) {
+                savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+                setInitialLinkText(selection.toString());
+              } else {
+                savedRangeRef.current = null;
+                setInitialLinkText('');
+              }
+              setShowLinkDialog(true);
+            }}
+            onInsertSketchClick={() => {
+              const selection = window.getSelection();
+              if (selection && selection.rangeCount > 0) {
+                savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+              } else {
+                savedRangeRef.current = null;
+              }
+              setHasLoadedSketch(true);
+              setShowSketchDialog(true);
+            }}
+          />
+        </div>
       )}
 
       <ImageInsertDialog 
@@ -395,6 +467,16 @@ export function Editor({
         onConfirm={handleInsertLink}
         initialText={initialLinkText}
       />
+
+      {hasLoadedSketch && (
+        <Suspense fallback={null}>
+          <SketchDialog 
+            isOpen={showSketchDialog}
+            onClose={() => setShowSketchDialog(false)}
+            onSave={handleInsertSketch}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

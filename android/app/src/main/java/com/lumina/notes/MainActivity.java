@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(FileSaverPlugin.class);
         super.onCreate(savedInstanceState);
         
         // Low-End Device Optimizations for Android WebView

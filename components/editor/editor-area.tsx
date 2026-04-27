@@ -5,6 +5,14 @@ import { marked } from 'marked';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { Trash2, Settings2, ExternalLink, AlignLeft, AlignCenter, AlignRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { TableEditDialog } from './table-edit-dialog';
 import { ImageEditDialog } from './image-edit-dialog';
 import markedKatex from 'marked-katex-extension';
@@ -15,11 +23,11 @@ const CARET_MARKER = '%%%%CARETMARKER%%%%';
 
 const getCaretCharacterOffsetWithin = (element: HTMLElement) => {
     let caretOffset = 0;
-    const doc = element.ownerDocument || element.document;
-    const win = doc.defaultView || doc.parentWindow;
-    const sel = win.getSelection();
+    const doc = element.ownerDocument;
+    const win = doc.defaultView;
+    const sel = win?.getSelection();
     if (sel && sel.rangeCount > 0) {
-        const range = win.getSelection()!.getRangeAt(0);
+        const range = sel.getRangeAt(0);
         const preCaretRange = range.cloneRange();
         preCaretRange.selectNodeContents(element);
         preCaretRange.setEnd(range.startContainer, range.startOffset);
@@ -84,7 +92,7 @@ const CUSTOM_STYLE = {
 };
 
 renderer.code = function(token) {
-  const code = token.text;
+  const code = token.text.replace(/^[\r\n]+/, '').replace(/[\r\n]+$/, '');
   let rawLang = (token.lang || '').match(/\S*/)?.[0]?.toLowerCase() || '';
   if (!rawLang) {
     rawLang = 'text';
@@ -109,7 +117,7 @@ renderer.code = function(token) {
     // Fallback style converted to inline CSS for the pre tag
     const inlineStyle = "margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;";
     
-    highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
+    highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre print:whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
   } else {
     try {
       highlightedContent = renderToStaticMarkup(
@@ -119,7 +127,7 @@ renderer.code = function(token) {
           customStyle={CUSTOM_STYLE}
           PreTag="div"
           codeTagProps={{
-            className: "code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono"
+            className: "code-element outline-none block min-h-[20px] whitespace-pre print:whitespace-pre-wrap [font-variant-ligatures:none] font-mono"
           }}
         >
           {code}
@@ -130,7 +138,7 @@ renderer.code = function(token) {
     } catch {
       const inlineStyle = "margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;";
       const escapeHtml = (unsafe: string) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
+      highlightedContent = `<pre style="${inlineStyle}"><code class="code-element outline-none block min-h-[20px] whitespace-pre print:whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${escapeHtml(code)}</code></pre>`;
     }
   }
 
@@ -153,7 +161,7 @@ renderer.code = function(token) {
       </button>
     </div>
   </div>
-  <div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre-wrap font-mono m-0 text-slate-800 dark:text-slate-200">
+  <div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre print:whitespace-pre-wrap font-mono m-0 text-slate-800 dark:text-slate-200">
     ${highlightedContent}
   </div>
 </div>
@@ -183,11 +191,33 @@ renderer.list = function(token: import('marked').Tokens.List) {
   return html;
 };
 
+renderer.image = function(token: import('marked').Tokens.Image) {
+  let html = marked.Renderer.prototype.image.call(this, token);
+  html = html.replace(/^<img /, '<img draggable="false" ');
+  return html;
+};
+
 const parseMarkdown = (text: string) => {
   // Strip zero-width characters that cause KaTeX console warnings
   // \u200B: Zero-width space, \u2061: Function application
   const cleanText = text.replace(/[\u200B\u2061]/g, '');
-  return marked.parse(cleanText, { renderer, breaks: true, gfm: true }) as string;
+  // Append zero-width non-joiner so marked doesn't strip trailing newlines
+  const html = marked.parse(cleanText + '\u200C', { renderer, breaks: true, gfm: true }) as string;
+  
+  // Replace the zero-width non-joiner
+  let finalHtml = html.replace('\u200C', '');
+  
+  // Natively in Chromium/Firefox empty <p></p> collapses to 0 height, making trailing newlines disappear visually.
+  // We insert a <br> inside empty paragraphs so they render visually exactly as a newline.
+  finalHtml = finalHtml.replace(/<p><\/p>/g, '<p><br></p>');
+  
+  // To ensure the cursor can always explicitly leave a completely trailing contenteditable="false" block (like CodeBlock or Table)
+  // We forcibly append an editable empty paragraph at the very end if the html does not end with one.
+  if (!finalHtml.trim().endsWith('</p>')) {
+      finalHtml += '<p><br></p>';
+  }
+  
+  return finalHtml;
 };
 
   export interface EditorAreaRef {
@@ -231,23 +261,26 @@ export const EditorArea = ({
   const [isTableEditDialogOpen, setIsTableEditDialogOpen] = useState(false);
   const [activeTableRow, setActiveTableRow] = useState<HTMLTableRowElement | null>(null);
   const [activeTableRowRect, setActiveTableRowRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
+  const [deletePromptInfo, setDeletePromptInfo] = useState<{ isOpen: boolean, targetRow: HTMLTableRowElement | null, targetTable: HTMLTableElement | null }>({ isOpen: false, targetRow: null, targetTable: null });
+  const [deletePromptOption, setDeletePromptOption] = useState<'row' | 'table'>('row');
 
   const [hoveredImage, setHoveredImage] = useState<HTMLImageElement | null>(null);
   const [imageRect, setImageRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
   const [isImageEditDialogOpen, setIsImageEditDialogOpen] = useState(false);
-  const [isResizingImage, setIsResizingImage] = useState(false);
+
   
   const [hoveredLink, setHoveredLink] = useState<HTMLAnchorElement | null>(null);
   const [linkRect, setLinkRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
   
-  const resizeStartData = useRef<{ startX: number, startY: number, startWidth: number, startHeight: number, startLeft: number, startTop: number, direction: string } | null>(null);
+
 
   // Sync previewRef with textareaRef if provided
   /* eslint-disable react-hooks/immutability */
   useEffect(() => {
     if (textareaRef && previewRef.current) {
       if (typeof textareaRef === 'function') {
-        textareaRef(previewRef.current);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (textareaRef as any)(previewRef.current);
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (textareaRef as any).current = previewRef.current;
@@ -259,58 +292,68 @@ export const EditorArea = ({
 
   const updateTableRect = useCallback((table: HTMLTableElement) => {
     if (!previewRef.current || !previewRef.current.parentElement) return;
-    
-    const tableRect = table.getBoundingClientRect();
+    if (!table || !table.getBoundingClientRect) return;
+    const tRect = table.getBoundingClientRect();
     const parentRect = previewRef.current.parentElement.getBoundingClientRect();
     
-    setTableRect({
-      top: tableRect.top - parentRect.top,
-      left: tableRect.left - parentRect.left,
-      width: tableRect.width,
-      height: tableRect.height
+    setTableRect(prev => {
+      const top = tRect.top - parentRect.top;
+      const left = tRect.left - parentRect.left;
+      if (prev && Math.abs(prev.top - top) < 1 && Math.abs(prev.left - left) < 1 && prev.width === tRect.width && prev.height === tRect.height) return prev;
+      return { top, left, width: tRect.width, height: tRect.height };
     });
 
     const firstRow = table.querySelector('tr');
     if (firstRow) {
       const tds = Array.from(firstRow.children) as HTMLElement[];
-      setColRects(tds.map(td => {
-         const r = td.getBoundingClientRect();
-         return { left: r.left - parentRect.left, width: r.width };
-      }));
+      setColRects(prev => {
+        const next = tds.map(td => {
+           if (!td || !td.getBoundingClientRect) return { left: 0, width: 0 };
+           const r = td.getBoundingClientRect();
+           return { left: r.left - parentRect.left, width: r.width };
+        });
+        if (prev.length === next.length && prev.every((p, i) => Math.abs(p.left - next[i].left) < 1 && p.width === next[i].width)) return prev;
+        return next;
+      });
     }
 
     const trs = Array.from(table.querySelectorAll('tr'));
-    setRowRects(trs.map(tr => {
-       const r = tr.getBoundingClientRect();
-       return { top: r.top - parentRect.top, height: r.height };
-    }));
+    setRowRects(prev => {
+      const next = trs.map(tr => {
+         if (!tr || !tr.getBoundingClientRect) return { top: 0, height: 0 };
+         const r = tr.getBoundingClientRect();
+         return { top: r.top - parentRect.top, height: r.height };
+      });
+      if (prev.length === next.length && prev.every((p, i) => Math.abs(p.top - next[i].top) < 1 && p.height === next[i].height)) return prev;
+      return next;
+    });
   }, []);
 
   const updateImageRect = useCallback((img: HTMLImageElement) => {
     if (!previewRef.current || !previewRef.current.parentElement) return;
-    
+    if (!img || !img.getBoundingClientRect) return;
     const imgRect = img.getBoundingClientRect();
     const parentRect = previewRef.current.parentElement.getBoundingClientRect();
     
-    setImageRect({
-      top: imgRect.top - parentRect.top,
-      left: imgRect.left - parentRect.left,
-      width: imgRect.width,
-      height: imgRect.height
+    setImageRect(prev => {
+      const top = imgRect.top - parentRect.top;
+      const left = imgRect.left - parentRect.left;
+      if (prev && Math.abs(prev.top - top) < 1 && Math.abs(prev.left - left) < 1 && prev.width === imgRect.width && prev.height === imgRect.height) return prev;
+      return { top, left, width: imgRect.width, height: imgRect.height };
     });
   }, []);
 
   const updateLinkRect = useCallback((link: HTMLAnchorElement) => {
     if (!previewRef.current || !previewRef.current.parentElement) return;
-    
+    if (!link || !link.getBoundingClientRect) return;
     const lRect = link.getBoundingClientRect();
     const parentRect = previewRef.current.parentElement.getBoundingClientRect();
     
-    setLinkRect({
-      top: lRect.top - parentRect.top,
-      left: lRect.left - parentRect.left,
-      width: lRect.width,
-      height: lRect.height
+    setLinkRect(prev => {
+      const top = lRect.top - parentRect.top;
+      const left = lRect.left - parentRect.left;
+      if (prev && Math.abs(prev.top - top) < 1 && Math.abs(prev.left - left) < 1 && prev.width === lRect.width && prev.height === lRect.height) return prev;
+      return { top, left, width: lRect.width, height: lRect.height };
     });
   }, []);
 
@@ -435,6 +478,23 @@ export const EditorArea = ({
       }
     });
 
+    service.addRule('emptyParagraph', {
+      filter: function (node) {
+        return (node.nodeName === 'DIV' || node.nodeName === 'P') && 
+               node.innerHTML.trim() === '<br>';
+      },
+      replacement: function () {
+        return '<br>';
+      }
+    });
+
+    service.addRule('preserveBr', {
+      filter: 'br',
+      replacement: function () {
+        return '<br>';
+      }
+    });
+
     service.addRule('tableRows', {
       filter: function (node) {
         return (node.nodeName === 'P' || node.nodeName === 'DIV') && 
@@ -486,8 +546,8 @@ export const EditorArea = ({
         };
 
         const codeTextRaw = codeContainer ? extractTextWithNewlines(codeContainer) : '';
-        // Remove exactly one trailing newline if it exists because our extraction adds one for the last block element
-        const code = codeTextRaw.endsWith('\n') ? codeTextRaw.slice(0, -1) : codeTextRaw;
+        // Remove leading and trailing newlines completely to avoid huge gaps
+        const code = codeTextRaw.replace(/^[\r\n]+/, '').replace(/[\r\n]+$/, '');
         const lang = language === 'code' ? '' : language;
         return `\n\n\`\`\`${lang}\n${code}\n\`\`\`\n\n`;
       }
@@ -500,6 +560,32 @@ export const EditorArea = ({
       replacement: function (_content, node) {
         const id = (node as HTMLElement).getAttribute('data-bookmark-id') || '';
         return `<span class="bookmark-marker" data-bookmark-id="${id}" style="display:inline-block; border-radius:4px; margin:0 2px; cursor:pointer;" title="Bookmark" contenteditable="false">&#128278;</span>`;
+      }
+    });
+
+    service.addRule('sketchContainer', {
+      filter: function (node) {
+        return node.nodeType === 1 && node.nodeName === 'DIV' && (node as HTMLElement).classList.contains('sketch-container');
+      },
+      replacement: function (_content, node) {
+        return '\n\n' + (node as HTMLElement).outerHTML + '\n\n';
+      }
+    });
+
+    service.addRule('emptyBlocks', {
+      filter: function (node) {
+        if (node.nodeName !== 'P' && node.nodeName !== 'DIV') return false;
+        const html = (node as HTMLElement).innerHTML.trim().toLowerCase();
+        if (html === '<br>' || html === '') return true;
+        if (html.includes('id="caret-marker"')) {
+            const stripped = html.replace(/<span id="caret-marker">.*?<\/span>/ig, '').trim();
+            if (stripped === '' || stripped === '<br>') return true;
+        }
+        return false;
+      },
+      replacement: function (content) {
+        const marker = content.replace(/\n|<br>/g, '').trim();
+        return '\n\n<br>' + marker + '\n\n';
       }
     });
 
@@ -516,6 +602,11 @@ export const EditorArea = ({
           }
           parent = parent.parentNode;
         }
+
+        if (node.parentNode && node.parentNode.nodeName === 'X-TURNDOWN') {
+          return '<br>';
+        }
+
         return '\n';
       }
     });
@@ -603,7 +694,7 @@ export const EditorArea = ({
 
     service.addRule('image', {
       filter: 'img',
-      replacement: function (content, node) {
+      replacement: function (_content, node) {
         const alt = (node as HTMLElement).getAttribute('alt') || '';
         const src = (node as HTMLElement).getAttribute('src') || '';
         const title = (node as HTMLElement).getAttribute('title') || '';
@@ -699,61 +790,7 @@ export const EditorArea = ({
 
 
 
-  const handleImageResizeStart = useCallback((e: React.MouseEvent, direction: string = 'se') => {
-    if (!hoveredImage) return;
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setIsResizingImage(true);
-    resizeStartData.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startWidth: hoveredImage.offsetWidth,
-      startHeight: hoveredImage.offsetHeight,
-      startLeft: hoveredImage.offsetLeft,
-      startTop: hoveredImage.offsetTop,
-      direction
-    };
-  }, [hoveredImage]);
 
-  useEffect(() => {
-    if (!isResizingImage || !hoveredImage || !resizeStartData.current) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      e.preventDefault();
-      const { startX, startWidth, startHeight, direction } = resizeStartData.current!;
-      const dx = e.clientX - startX;
-      
-      const ratio = startWidth / startHeight;
-      let newWidth = startWidth;
-      
-      if (direction.includes('e')) {
-        newWidth = Math.max(50, startWidth + dx);
-      } else if (direction.includes('w')) {
-        newWidth = Math.max(50, startWidth - dx);
-      }
-
-      const newHeight = newWidth / ratio;
-
-      hoveredImage.style.width = `${newWidth}px`;
-      hoveredImage.style.height = `${newHeight}px`;
-      updateImageRect(hoveredImage);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizingImage(false);
-      resizeStartData.current = null;
-      flushPreviewEdit();
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizingImage, hoveredImage, updateImageRect, flushPreviewEdit]);
 
   const deleteImage = useCallback(() => {
     if (hoveredImage && hoveredImage.parentNode) {
@@ -971,7 +1008,7 @@ export const EditorArea = ({
                    preEl.style.cssText = "margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;";
                    
                    const codeEl = document.createElement('code');
-                   codeEl.className = "code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono";
+                   codeEl.className = "code-element outline-none block min-h-[20px] whitespace-pre print:whitespace-pre-wrap [font-variant-ligatures:none] font-mono";
                    codeEl.setAttribute('contenteditable', 'plaintext-only');
                    
                    codeEl.appendChild(docFrag);
@@ -1009,17 +1046,22 @@ export const EditorArea = ({
              const markerEl = previewRef.current.querySelector('#caret-marker');
              if (markerEl) {
                  const newRange = document.createRange();
-                 // To prevent jumping, find a valid text node if possible, or just set before marker
+                 const parent = markerEl.parentNode;
+                 
                  if (markerEl.previousSibling && markerEl.previousSibling.nodeType === Node.TEXT_NODE) {
                      const textNode = markerEl.previousSibling as Text;
+                     markerEl.remove();
                      newRange.setStart(textNode, textNode.length);
+                 } else if (parent) {
+                     const offset = Array.from(parent.childNodes).indexOf(markerEl);
+                     markerEl.remove();
+                     newRange.setStart(parent, offset);
                  } else {
-                     newRange.setStartBefore(markerEl);
+                     markerEl.remove();
                  }
                  newRange.collapse(true);
                  sel.removeAllRanges();
                  sel.addRange(newRange);
-                 markerEl.remove();
              }
              
              // Restore true scroll targeting
@@ -1071,19 +1113,19 @@ export const EditorArea = ({
         let current: HTMLElement | null = target;
         while (current && current !== editor) {
           const tag = current.tagName;
-          const parent = current.parentElement;
-          if (!parent) break;
+          const currentParent: HTMLElement | null = current.parentElement;
+          if (!currentParent) break;
 
           if (/^(STRONG|B|EM|I|U|S|DEL|STRIKE|CODE|MARK|A|SPAN)$/i.test(tag)) {
             while (current.firstChild) {
-              parent.insertBefore(current.firstChild, current);
+              currentParent.insertBefore(current.firstChild, current);
             }
-            parent.removeChild(current);
+            currentParent.removeChild(current);
             didChange = true;
-            current = parent; // continue up
+            current = currentParent; // continue up
             continue;
           }
-          current = parent;
+          current = currentParent;
         }
 
         // 2. Identify the enclosing block
@@ -1335,16 +1377,21 @@ export const EditorArea = ({
             const markerEl = previewRef.current.querySelector('#caret-marker');
             if (markerEl && sel) {
                  const newRange = document.createRange();
+                 const parent = markerEl.parentNode;
                  if (markerEl.previousSibling && markerEl.previousSibling.nodeType === Node.TEXT_NODE) {
                      const textNode = markerEl.previousSibling as Text;
+                     markerEl.remove();
                      newRange.setStart(textNode, textNode.length);
+                 } else if (parent) {
+                     const offset = Array.from(parent.childNodes).indexOf(markerEl);
+                     markerEl.remove();
+                     newRange.setStart(parent, offset);
                  } else {
-                     newRange.setStartBefore(markerEl);
+                     markerEl.remove();
                  }
                  newRange.collapse(true);
                  sel.removeAllRanges();
                  sel.addRange(newRange);
-                 markerEl.remove();
             }
         }
         flushPreviewEdit();
@@ -1354,7 +1401,6 @@ export const EditorArea = ({
   }, [isAutoMarkdownEnabled, content, flushPreviewEdit, turndownService]);
 
   const handleSelectionChange = useCallback(() => {
-    // Disabled text selection hover based on user request
     if (!previewRef.current || isViewMode) return;
     
     setSelectedColIndex(null);
@@ -1366,14 +1412,61 @@ export const EditorArea = ({
       setActiveTableRow(null);
       return;
     }
+    
     const node = sel.anchorNode;
     if (!previewRef.current.contains(node)) {
       setActiveTableRow(null);
       return;
     }
+
+    // Typewriter mode logic, now permanently enabled
+    if (sel.isCollapsed && previewRef.current.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      const el = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : range.startContainer as Element;
+      
+      // Do not auto-scroll if an image was clicked/selected
+      if (!(el && (el.tagName === 'IMG' || el.closest('figure') || el.closest('.image-wrapper') || el.closest('.code-block-wrapper')))) {
+        try {
+          if (!range || !range.getBoundingClientRect) return;
+          let rect = range.getBoundingClientRect();
+          
+          if (rect.height === 0 || rect.width === 0) {
+            const span = document.createElement('span');
+            span.textContent = '\u200b';
+            try {
+              const cloneRange = range.cloneRange();
+              cloneRange.insertNode(span);
+              rect = span.getBoundingClientRect();
+              span.remove();
+            } catch {
+              if (el) rect = el.getBoundingClientRect();
+            }
+          }
+          
+          if (rect.top === 0 && rect.bottom === 0) return;
+          
+          if (rect && rect.height >= 0) { // also allow height 0 when rect is otherwise valid
+            const scrollParent = previewRef.current.closest('.overflow-y-auto') as HTMLElement;
+            if (scrollParent) {
+              const parentRect = scrollParent.getBoundingClientRect();
+              const absoluteTop = rect.top + scrollParent.scrollTop - parentRect.top;
+              const targetScrollTop = absoluteTop - (parentRect.height / 2) + (rect.height / 2);
+              
+              if (Math.abs(targetScrollTop - scrollParent.scrollTop) > 30) {
+                scrollParent.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+              }
+            }
+          }
+        } catch {
+          // ignore error measuring rect
+        }
+      }
+    }
+
     const tr = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node as Element)?.closest('tr');
     if (tr && previewRef.current.contains(tr)) {
       setActiveTableRow(tr as HTMLTableRowElement);
+      if (!tr.getBoundingClientRect) return;
       const rect = tr.getBoundingClientRect();
       const parentRect = previewRef.current.parentElement!.getBoundingClientRect();
       setActiveTableRowRect({
@@ -1396,6 +1489,7 @@ export const EditorArea = ({
     if (!activeTableRow || !previewRef.current) return;
     const observer = new ResizeObserver(() => {
       const parentRect = previewRef.current!.parentElement?.getBoundingClientRect();
+      if (!activeTableRow || !activeTableRow.getBoundingClientRect) return;
       const rect = activeTableRow.getBoundingClientRect();
       if (parentRect) {
         setActiveTableRowRect({
@@ -1530,8 +1624,8 @@ export const EditorArea = ({
                      .replace(/&/g, '&amp;')
                      .replace(/</g, '&lt;')
                      .replace(/>/g, '&gt;');
-                  const codeHtml = `<pre style="margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;"><code class="code-element outline-none block min-h-[20px] whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${codeContent}</code></pre>`;
-                  finalHtml += `<div class="code-block-wrapper border border-[#e5e7eb] dark:border-[#374151] rounded-md my-4 overflow-hidden not-prose shadow-sm max-w-full relative" contenteditable="false"><div class="bg-[#f8f9fa] dark:bg-[#1f2937] border-b border-[#e5e7eb] dark:border-[#374151] px-4 py-2 flex justify-between items-center text-[13px]"><div class="font-semibold text-[#6366f1] dark:text-[#818cf8] language-label flex items-center">${part.language}</div><div class="flex items-center gap-4"><button class="flex items-center gap-1 text-[#6366f1] dark:text-[#818cf8] hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer"><span class="text-xs">»</span> Open</button><button class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity bg-transparent border-none cursor-pointer copy-btn"><span class="copy-text">Copy</span></button><button class="flex items-center gap-1.5 text-slate-400 hover:text-red-500 transition-opacity bg-transparent border-none cursor-pointer delete-btn" title="Delete code block"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></div></div><div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre-wrap font-mono m-0 text-slate-800 dark:text-slate-200">${codeHtml}</div></div>`;
+                  const codeHtml = `<pre style="margin:0;padding:0.5rem 1.5rem 0.5rem 1.25rem;font-size:13px;line-height:1.5;font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;background:transparent;"><code class="code-element outline-none block min-h-[20px] whitespace-pre print:whitespace-pre-wrap [font-variant-ligatures:none] font-mono" contenteditable="plaintext-only">${codeContent}</code></pre>`;
+                  finalHtml += `<div class="code-block-wrapper border border-[#e5e7eb] dark:border-[#374151] rounded-md my-4 overflow-hidden not-prose shadow-sm max-w-full relative" contenteditable="false"><div class="bg-[#f8f9fa] dark:bg-[#1f2937] border-b border-[#e5e7eb] dark:border-[#374151] px-4 py-2 flex justify-between items-center text-[13px]"><div class="font-semibold text-[#6366f1] dark:text-[#818cf8] language-label flex items-center">${part.language}</div><div class="flex items-center gap-4"><button class="flex items-center gap-1 text-[#6366f1] dark:text-[#818cf8] hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer"><span class="text-xs">»</span> Open</button><button class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity bg-transparent border-none cursor-pointer copy-btn"><span class="copy-text">Copy</span></button><button class="flex items-center gap-1.5 text-slate-400 hover:text-red-500 transition-opacity bg-transparent border-none cursor-pointer delete-btn" title="Delete code block"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button></div></div><div class="bg-[#f4f7f9] dark:bg-[#0d1117] overflow-x-auto overflow-y-auto max-h-[500px] w-full max-w-full code-container whitespace-pre print:whitespace-pre-wrap font-mono m-0 text-slate-800 dark:text-slate-200">${codeHtml}</div></div>`;
               } else {
                   const paragraphs = part.content.split(/\r?\n\r?\n/);
                   if (paragraphs.length === 1) {
@@ -1541,7 +1635,7 @@ export const EditorArea = ({
                          .replace(/>/g, '&gt;')
                          .replace(/\r?\n/g, '<br>')
                          .replace(/ {2}/g, '&nbsp; ');
-                      finalHtml += `<span>${textContent}</span>`;
+                      finalHtml += `<span>${textContent || '<br>'}</span>`;
                   } else {
                       const htmlText = paragraphs.map(p => {
                           const inner = p
@@ -1550,7 +1644,7 @@ export const EditorArea = ({
                               .replace(/>/g, '&gt;')
                               .replace(/\r?\n/g, '<br>')
                               .replace(/ {2}/g, '&nbsp; ');
-                          return `<p>${inner}</p>`;
+                          return `<p>${inner || '<br>'}</p>`;
                       }).join('');
                       finalHtml += htmlText;
                   }
@@ -1569,7 +1663,7 @@ export const EditorArea = ({
                   .replace(/>/g, '&gt;')
                   .replace(/\r?\n/g, '<br>')
                   .replace(/ {2}/g, '&nbsp; ');
-              htmlText = `<span>${inner}</span>`;
+              htmlText = `<span>${inner || '<br>'}</span>`;
           } else {
               htmlText = paragraphs.map(p => {
                   const inner = p
@@ -1578,7 +1672,7 @@ export const EditorArea = ({
                       .replace(/>/g, '&gt;')
                       .replace(/\r?\n/g, '<br>')
                       .replace(/ {2}/g, '&nbsp; ');
-                  return `<p>${inner}</p>`;
+                  return `<p>${inner || '<br>'}</p>`;
               }).join('');
           }
           document.execCommand('insertHTML', false, htmlText);
@@ -1608,8 +1702,14 @@ export const EditorArea = ({
         onKeyUp={handleCursorMove}
         onClick={handleCursorMove}
         onPaste={handlePaste}
+        onDragStart={(e) => {
+          if ((e.target as HTMLElement).tagName === 'IMG') {
+            e.preventDefault();
+          }
+        }}
         className={cn(
-          "prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words pb-[40vh] print:pb-0 text-lg prose-p:whitespace-pre-wrap prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-slate-800/80 prose-code:border prose-code:border-slate-200 dark:prose-code:border-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.85em] prose-code:font-medium prose-code:shadow-[0_1px_2px_rgba(0,0,0,0.05)] prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px] print:min-h-0 print:prose-pre:break-inside-avoid print:prose-table:break-inside-avoid print:prose-img:break-inside-avoid print:prose-code:break-inside-avoid print:prose-headings:break-after-avoid",
+          "prose prose-slate dark:prose-invert w-full min-w-0 max-w-full overflow-x-hidden break-words print:pb-0 text-lg prose-p:whitespace-pre-wrap prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-code:bg-slate-100 dark:prose-code:bg-slate-800/80 prose-code:border prose-code:border-slate-200 dark:prose-code:border-slate-700 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono prose-code:text-[0.85em] prose-code:font-medium prose-code:shadow-[0_1px_2px_rgba(0,0,0,0.05)] prose-code:before:content-none prose-code:after:content-none prose-pre:p-0 prose-pre:bg-transparent prose-img:rounded-xl prose-table:border-collapse prose-table:w-full prose-table:m-0 prose-th:border prose-th:border-border prose-th:p-3 prose-th:bg-muted/50 prose-th:font-semibold prose-td:border prose-td:border-border prose-td:p-3 outline-none focus:ring-0 min-h-[500px] print:min-h-0 print:prose-pre:break-inside-avoid print:prose-table:break-inside-avoid print:prose-img:break-inside-avoid print:prose-code:break-inside-avoid print:prose-headings:break-after-avoid transition-[padding] duration-500",
+          "pt-0 pb-[60vh]",
           isEraserMode && "cursor-[url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%23f43f5e\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21\"/><path d=\"M22 21H7\"/><path d=\"m5 11 9 9\"/></svg>'),_crosshair]"
         )}
         role="textbox"
@@ -1686,18 +1786,10 @@ export const EditorArea = ({
               onClick={(e) => { 
                   e.preventDefault(); 
                   const table = activeTableRow.closest('table');
-                  activeTableRow.remove();
-                  if (table && table.querySelectorAll('tr').length === 0) {
-                     const wrapper = table.closest('.table-wrapper');
-                     if (wrapper) wrapper.remove();
-                     else table.remove();
-                     setHoveredTable(null);
-                  }
-                  flushPreviewEdit();
-                  setActiveTableRow(null);
+                  setDeletePromptInfo({ isOpen: true, targetRow: activeTableRow, targetTable: table });
               }}
               className="p-1 px-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
-              title="Delete Row"
+              title="Delete Options"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -1805,35 +1897,6 @@ export const EditorArea = ({
       {!isViewMode && hoveredImage && imageRect && (
         <>
           <div 
-            className="absolute z-40 border-2 border-indigo-500 pointer-events-none print:hidden"
-            style={{
-              top: imageRect.top,
-              left: imageRect.left,
-              width: imageRect.width,
-              height: imageRect.height,
-            }}
-          />
-          <div
-            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nwse-resize rounded-sm print:hidden"
-            style={{ top: imageRect.top - 6, left: imageRect.left - 6 }}
-            onMouseDown={(e) => handleImageResizeStart(e, 'nw')}
-          />
-          <div
-            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nesw-resize rounded-sm print:hidden"
-            style={{ top: imageRect.top - 6, left: imageRect.left + imageRect.width - 6 }}
-            onMouseDown={(e) => handleImageResizeStart(e, 'ne')}
-          />
-          <div
-            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nesw-resize rounded-sm print:hidden"
-            style={{ top: imageRect.top + imageRect.height - 6, left: imageRect.left - 6 }}
-            onMouseDown={(e) => handleImageResizeStart(e, 'sw')}
-          />
-          <div
-            className="absolute z-50 w-3 h-3 bg-white border-2 border-indigo-500 cursor-nwse-resize rounded-sm print:hidden"
-            style={{ top: imageRect.top + imageRect.height - 6, left: imageRect.left + imageRect.width - 6 }}
-            onMouseDown={(e) => handleImageResizeStart(e, 'se')}
-          />
-          <div 
             className="image-floating-toolbar absolute z-50 flex items-center justify-center print:hidden"
             style={{ 
               top: imageRect.top - 36, 
@@ -1891,6 +1954,87 @@ export const EditorArea = ({
         image={hoveredImage}
         onConfirm={handleImageEditConfirm}
       />
+
+      <Dialog open={deletePromptInfo.isOpen} onOpenChange={(open) => !open && setDeletePromptInfo({ isOpen: false, targetRow: null, targetTable: null })}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Element</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            <div
+              className={cn(
+                "flex flex-col items-start p-4 border rounded-xl cursor-pointer transition-all duration-200",
+                deletePromptOption === 'row' 
+                  ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
+                  : "border-border hover:border-primary/50 hover:bg-muted/50"
+              )}
+              onClick={() => setDeletePromptOption('row')}
+            >
+              <div className="flex justify-between items-center w-full">
+                <span className="font-medium text-sm">Delete current row</span>
+                <div className={cn(
+                  "w-4 h-4 rounded-full border flex items-center justify-center transition-colors shrink-0",
+                  deletePromptOption === 'row' ? "border-primary bg-primary" : "border-muted-foreground/30 bg-background"
+                )}>
+                  {deletePromptOption === 'row' && <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 pr-6">Removes only the currently selected row and keeps the rest of the table intact.</p>
+            </div>
+            
+            <div
+              className={cn(
+                "flex flex-col items-start p-4 border rounded-xl cursor-pointer transition-all duration-200",
+                deletePromptOption === 'table' 
+                  ? "border-destructive bg-destructive/10 ring-1 ring-destructive/30" 
+                  : "border-border hover:border-destructive/30 hover:bg-destructive/5"
+              )}
+              onClick={() => setDeletePromptOption('table')}
+            >
+              <div className="flex justify-between items-center w-full">
+                <span className={cn("font-medium text-sm", deletePromptOption === 'table' ? "text-destructive" : "")}>Delete entire table</span>
+                <div className={cn(
+                  "w-4 h-4 rounded-full border flex items-center justify-center transition-colors shrink-0",
+                  deletePromptOption === 'table' ? "border-destructive bg-destructive" : "border-muted-foreground/30 bg-background"
+                )}>
+                  {deletePromptOption === 'table' && <div className="w-1.5 h-1.5 rounded-full bg-destructive-foreground" />}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 pr-6">Permanently removes the entire table and all data inside it.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setDeletePromptInfo({ isOpen: false, targetRow: null, targetTable: null })}>Cancel</Button>
+            <Button variant={deletePromptOption === 'table' ? "destructive" : "default"} onClick={() => {
+              const { targetRow, targetTable } = deletePromptInfo;
+              if (deletePromptOption === 'table') {
+                if (targetTable) {
+                  const wrapper = targetTable.closest('.table-wrapper');
+                  if (wrapper) wrapper.remove();
+                  else targetTable.remove();
+                  setHoveredTable(null);
+                }
+              } else if (deletePromptOption === 'row') {
+                if (targetRow) {
+                  const table = targetRow.closest('table');
+                  targetRow.remove();
+                  if (table && table.querySelectorAll('tr').length === 0) {
+                     const wrapper = table.closest('.table-wrapper');
+                     if (wrapper) wrapper.remove();
+                     else table.remove();
+                     setHoveredTable(null);
+                  }
+                }
+              }
+              flushPreviewEdit();
+              setActiveTableRow(null);
+              setDeletePromptInfo({ isOpen: false, targetRow: null, targetTable: null });
+            }}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

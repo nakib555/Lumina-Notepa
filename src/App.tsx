@@ -8,6 +8,8 @@ import { Feather, Layers, ArrowRight, Edit3, ImageIcon, Eye } from "lucide-react
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AutoUpdater } from "@/components/auto-updater";
 import { App as CapacitorApp } from "@capacitor/app";
+import { StatusBar, Style } from "@capacitor/status-bar";
+import { Capacitor } from "@capacitor/core";
 import { toast } from "sonner";
 
 const INTRO_SLIDES = [
@@ -78,6 +80,14 @@ export default function App() {
     root.classList.remove('light', 'dark', 'fancy', 'rainbow', 'dracula', 'nord');
     if (theme !== 'light') {
       root.classList.add(theme);
+    }
+    if (Capacitor.isNativePlatform()) {
+      try {
+        StatusBar.setStyle({ style: theme === 'dark' ? Style.Dark : Style.Light }).catch(console.error);
+        StatusBar.setBackgroundColor({ color: theme === 'dark' ? '#0f172a' : '#ffffff' }).catch(console.error);
+      } catch (e) {
+        console.error("Failed to set status bar", e);
+      }
     }
   }, [theme]);
 
@@ -476,7 +486,9 @@ export default function App() {
             onCreateNote={createNote}
             onDeleteNote={deleteNote}
             onUpdateNote={updateNote}
-            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            onToggleSidebar={() => {
+              setIsSidebarOpen(!isSidebarOpen);
+            }}
             theme={theme}
             fontFamily={fontFamily}
             onFontFamilyChange={setFontFamily}

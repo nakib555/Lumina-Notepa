@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import { Note } from '@/hooks/use-notes';
 
 export const useEditorFormatting = (
-  note: Note | null,
-  onUpdateNote: (id: string, updates: Partial<Note>) => void,
+  _note: Note | null,
+  _onUpdateNote: (id: string, updates: Partial<Note>) => void,
   textareaRef: React.RefObject<HTMLDivElement | null>
 ) => {
   const applyFormatting = useCallback((prefix: string) => {

@@ -8,6 +8,7 @@ export default defineConfig({
   },
   plugins: [
     react({
+      // @ts-expect-error missing type
       babel: {
         plugins: [
           ["babel-plugin-react-compiler"]
@@ -45,7 +46,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 5000000,
+        maximumFileSizeToCacheInBytes: 20000000,
         clientsClaim: true,
         skipWaiting: true
       }
@@ -54,7 +55,14 @@ export default defineConfig({
   build: {
     target: 'esnext',
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -64,6 +72,9 @@ export default defineConfig({
             }
             if (id.includes('marked') || id.includes('turndown') || id.includes('react-syntax-highlighter')) {
               return 'markdown';
+            }
+            if (id.includes('@excalidraw')) {
+              return 'excalidraw';
             }
             if (id.includes('lucide-react')) {
               return 'ui';

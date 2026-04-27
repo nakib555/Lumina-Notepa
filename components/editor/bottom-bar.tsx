@@ -32,12 +32,12 @@ interface BottomBarProps {
   fontFamily: string;
   onFontFamilyChange: (font: string) => void;
   applyFontSize: (size: string) => void;
-  clearFormatting?: () => void;
   isEraserMode?: boolean;
   setIsEraserMode?: (isEraserMode: boolean) => void;
   textareaRef: React.RefObject<HTMLDivElement | null>;
   onInsertImageClick: () => void;
   onInsertLinkClick: () => void;
+  onInsertSketchClick?: () => void;
   isAutoMarkdownEnabled: boolean;
   setIsAutoMarkdownEnabled: (enabled: boolean) => void;
 }
@@ -62,12 +62,12 @@ export const BottomBar = ({
   fontFamily,
   onFontFamilyChange,
   applyFontSize,
-  clearFormatting,
   isEraserMode,
   setIsEraserMode,
   textareaRef,
   onInsertImageClick,
   onInsertLinkClick,
+  onInsertSketchClick,
   isAutoMarkdownEnabled,
   setIsAutoMarkdownEnabled
 }: BottomBarProps) => {
@@ -147,7 +147,6 @@ export const BottomBar = ({
           fontFamily={fontFamily}
           onFontFamilyChange={onFontFamilyChange}
           applyFontSize={applyFontSize}
-          clearFormatting={clearFormatting}
           isEraserMode={isEraserMode}
           setIsEraserMode={setIsEraserMode}
           applyFormatting={applyFormatting}
@@ -155,6 +154,7 @@ export const BottomBar = ({
           textareaRef={textareaRef}
           onInsertImageClick={onInsertImageClick}
           onInsertLinkClick={onInsertLinkClick}
+          onInsertSketchClick={onInsertSketchClick}
           isAutoMarkdownEnabled={isAutoMarkdownEnabled}
           setIsAutoMarkdownEnabled={setIsAutoMarkdownEnabled}
           showSymbolMenu={showSymbolMenu}
