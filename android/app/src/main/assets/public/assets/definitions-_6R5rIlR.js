@@ -1,0 +1,1 @@
+var E={RECORDING:"RECORDING",PAUSED:"PAUSED",NONE:"NONE"};export{E as t};

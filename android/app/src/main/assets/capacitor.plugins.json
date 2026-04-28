@@ -46,9 +46,5 @@
 	{
 		"pkg": "@capgo/capacitor-zip",
 		"classpath": "ee.forgr.plugin.capacitor_zip.CapacitorZipPlugin"
-	},
-	{
-		"pkg": "capacitor-voice-recorder",
-		"classpath": "com.tchvu3.capacitorvoicerecorder.VoiceRecorder"
 	}
 ]

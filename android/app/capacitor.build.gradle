@@ -21,7 +21,6 @@ dependencies {
     implementation project(':capawesome-team-capacitor-file-opener')
     implementation project(':capgo-capacitor-printer')
     implementation project(':capgo-capacitor-zip')
-    implementation project(':capacitor-voice-recorder')
 
 }
 

@@ -371,22 +371,6 @@ export function Editor({
                 folderInput={folderInput}
                 setFolderInput={setFolderInput}
                 updateFolder={updateFolder}
-                onVoiceRecorded={(base64Audio, _duration, mimeType) => {
-                   const src = `data:${mimeType};base64,${base64Audio}`;
-                   if (textareaRef.current) {
-                      textareaRef.current.focus();
-                      if (savedRangeRef.current) {
-                        const selection = window.getSelection();
-                        selection?.removeAllRanges();
-                        selection?.addRange(savedRangeRef.current);
-                      }
-                      const audioTag = `<audio controls src="${src}"></audio><p>&#8203;</p>`;
-                      document.execCommand('insertHTML', false, audioTag);
-                      if (editorAreaRef.current) {
-                        editorAreaRef.current.flushPreviewEdit();
-                      }
-                   }
-                }}
                 onSetReminder={(schedTime) => {
                    onUpdateNote(note.id, { reminderAt: schedTime.getTime() });
                    toast.success(`Reminder set for ${schedTime.toLocaleTimeString()}`);

@@ -1,6 +1,5 @@
 import { Hash, X, Tag, Folder, Bell, Clock } from "lucide-react";
 import { Note } from "@/hooks/use-notes";
-import { VoiceRecorderButton } from "@/components/editor/voice-recorder";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useState } from "react";
@@ -16,7 +15,6 @@ interface MetadataBarProps {
   folderInput: string;
   setFolderInput: (val: string) => void;
   updateFolder: (e: React.KeyboardEvent) => void;
-  onVoiceRecorded?: (base64Audio: string, duration: number, mimeType: string) => void;
   onSetReminder?: (date: Date) => void;
 }
 
@@ -30,7 +28,6 @@ export const MetadataBar = ({
   folderInput,
   setFolderInput,
   updateFolder,
-  onVoiceRecorded,
   onSetReminder
 }: MetadataBarProps) => {
   const [reminderDate, setReminderDate] = useState<Date | undefined>(note.reminderAt ? new Date(note.reminderAt) : undefined);
@@ -140,10 +137,6 @@ export const MetadataBar = ({
               </div>
             </PopoverContent>
           </Popover>
-        )}
-        
-        {onVoiceRecorded && (
-           <VoiceRecorderButton onAudioRecorded={onVoiceRecorded} />
         )}
       </div>
     </div>
