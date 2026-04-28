@@ -104,7 +104,8 @@ export const MetadataBar = ({
         {onSetReminder && (
           <Popover>
             <PopoverTrigger 
-              className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 hover:bg-primary/10 hover:text-primary text-muted-foreground text-[11px] font-medium rounded-full transition-all duration-200 active:scale-90 border border-transparent hover:border-primary/20"
+              render={<button type="button" />}
+              className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 hover:bg-primary/10 hover:text-primary text-muted-foreground text-[11px] font-medium rounded-full transition-all duration-200 active:scale-90 border border-transparent hover:border-primary/20 cursor-pointer"
             >
               <Bell className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">
@@ -112,7 +113,7 @@ export const MetadataBar = ({
               </span>
             </PopoverTrigger>
             <PopoverContent 
-              className="w-auto p-4 flex flex-col gap-4 z-[100] data-open:animate-in data-closed:animate-out data-open:fade-in-0 data-closed:fade-out-0 data-open:zoom-in-75 data-closed:zoom-out-95 data-open:slide-in-from-top-4 duration-300 ease-out origin-top-right" 
+              className="w-auto p-4 flex flex-col gap-4 z-[100] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-75 data-[state=closed]:zoom-out-95 data-[state=open]:slide-in-from-top-2 duration-200 origin-top-right shadow-xl" 
               align="end"
             >
               <div className="space-y-4">

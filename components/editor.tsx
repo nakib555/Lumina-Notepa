@@ -348,14 +348,14 @@ export function Editor({
 
       {/* Editor Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar print:overflow-visible print:bg-white print:text-black flex justify-center">
-        <div className="flex-1 w-full max-w-4xl px-8 pt-10 pb-24 md:px-12 md:pt-16 md:pb-32 print:p-0 flex flex-col gap-8 min-h-full">
+        <div className="flex-1 w-full max-w-4xl px-8 pt-10 pb-24 md:px-12 md:pt-16 md:pb-32 print:p-0 flex flex-col gap-4 md:gap-5 min-h-full">
           <TextareaAutosize
             value={note.title}
             onChange={handleTitleChange}
             placeholder="Note Title"
             autoComplete="off"
             readOnly={isViewMode}
-            className={cn("w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight print:text-black print:text-center resize-none p-0 m-0 leading-tight shrink-0", isViewMode && "cursor-default")}
+            className={cn("w-full text-4xl md:text-5xl font-bold text-foreground placeholder:text-muted-foreground/30 border-none outline-none bg-transparent tracking-tight print:text-black print:text-center resize-none p-0 m-0 leading-tight shrink-0 whitespace-pre-wrap break-words overflow-hidden", isViewMode && "cursor-default")}
           />
           
           {/* Tag Management */}

@@ -12,6 +12,14 @@
 #   public *;
 #}
 
+# Capacitor
+-keep class com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keepattributes *Annotation*
+
+# Capacitor plugins
+-keep class com.tchvu3.capacitorvoicerecorder.** { *; }
+
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
 #-keepattributes SourceFile,LineNumberTable

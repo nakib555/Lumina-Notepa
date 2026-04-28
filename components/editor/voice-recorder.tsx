@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Capacitor } from '@capacitor/core';
-import { VoiceRecorder } from 'capacitor-voice-recorder';
 import { toast } from 'sonner';
 
 interface VoiceRecorderProps {
@@ -13,82 +11,102 @@ export const VoiceRecorderButton = ({ onAudioRecorded }: VoiceRecorderProps) => 
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const checkPermissions = useCallback(async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        await VoiceRecorder.hasAudioRecordingPermission();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === 'NotFoundError') {
+        console.warn('Microphone not found. Audio recording will be unavailable.');
+      } else {
+        console.error('Microphone permission check failed:', e);
       }
-    } catch (e) {
-      console.error(e);
     }
   }, []);
 
   useEffect(() => {
-    checkPermissions();
+    // Only check if we are in a browser environment that supports it
+    if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+      checkPermissions();
+    }
   }, [checkPermissions]);
 
   const startRecording = async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        const hasPerm = await VoiceRecorder.hasAudioRecordingPermission();
-        if (!hasPerm.value) {
-          const req = await VoiceRecorder.requestAudioRecordingPermission();
-          if (!req.value) {
-            toast.error("Microphone permission denied");
-            return;
-          }
-        }
-        await VoiceRecorder.startRecording();
-      } else {
-         const hasPerm = await VoiceRecorder.hasAudioRecordingPermission();
-         if (!hasPerm.value) {
-            const req = await VoiceRecorder.requestAudioRecordingPermission();
-            if (!req.value) {
-                toast.error("Microphone permission denied");
-                return;
-            }
-         }
-         await VoiceRecorder.startRecording();
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+        toast.error("Audio recording is not supported in this browser.");
+        return;
       }
-      
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/aac' });
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          // Extract just the base64 part, skipping the data:audio/xxx;base64, prefix
+          const base64Audio = base64data.split(',')[1];
+          if (base64Audio && recordingDuration > 0) {
+            onAudioRecorded(base64Audio, recordingDuration, audioBlob.type || 'audio/aac');
+            toast.success("Voice memo saved");
+          } else {
+             toast.error("Failed to save recording or recording was too short");
+          }
+        };
+
+        // Stop all tracks to release the microphone
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
+      
       timerRef.current = setInterval(() => {
         setRecordingDuration(prev => prev + 1);
       }, 1000);
       
     } catch (e: unknown) {
       const err = e as Error;
-      toast.error("Failed to start recording: " + (err?.message || 'Unknown error'));
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        toast.error("Microphone permission denied");
+      } else if (err.name === 'NotFoundError') {
+        toast.error("No microphone found on this device");
+      } else {
+        toast.error("Failed to start recording: " + (err?.message || 'Unknown error'));
+      }
       console.error(e);
     }
   };
 
-  const stopRecording = async () => {
+  const stopRecording = () => {
     try {
-      const result = await VoiceRecorder.stopRecording();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
-      
-      if (result && result.value && result.value.recordDataBase64) {
-        onAudioRecorded(
-         result.value.recordDataBase64, 
-         recordingDuration, 
-         result.value.msDuration ? result.value.mimeType : 'audio/aac'
-        );
-        toast.success("Voice memo saved");
-      } else {
-        toast.error("Failed to save recording");
-      }
-      setRecordingDuration(0);
     } catch (e: unknown) {
       const err = e as Error;
       toast.error("Failed to stop recording: " + (err?.message || 'Unknown error'));
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
-      setRecordingDuration(0);
     }
   };
 
@@ -131,3 +149,4 @@ export const VoiceRecorderButton = ({ onAudioRecorded }: VoiceRecorderProps) => 
     </div>
   );
 };
+

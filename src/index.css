@@ -286,11 +286,13 @@
   vertical-align: baseline;
 }
 
+/* CSS Custom Highlight API ::highlight causes lightningcss errors, commented out for now 
 *::highlight(search-results) {
-  background-color: rgb(250 204 21 / 0.4); /* Tailwind yellow-400 equivalent at 40% opacity */
+  background-color: rgb(250 204 21 / 0.4); 
   color: inherit;
   border-radius: 2px;
 }
+*/
 
 body.search-is-active *::selection {
   background-color: transparent;
